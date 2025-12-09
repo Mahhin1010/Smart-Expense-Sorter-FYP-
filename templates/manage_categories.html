@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Categories - Smart Sorter{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-container {
+        padding: 50px 24px 80px;
+        background: #0f172a;
+        min-height: 100vh;
+        color: white;
+    }
+
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .dashboard-header p {
+        color: #94a3b8;
+        font-size: 1.1rem;
+    }
+
+    .card-glass {
+        background: #1e293b;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Form Styles */
+    .category-form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+
+    .form-input {
+        flex: 1;
+        background: #0f172a;
+        border: 1px solid #334155;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 50px;
+        outline: none;
+        transition: border-color 0.2s;
+        min-width: 200px;
+    }
+
+    .form-input:focus {
+        border-color: #3b82f6;
+    }
+
+    .btn-add {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-add:hover {
+        background: #2563eb;
+    }
+
+    /* Category List Styles */
+    .category-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .category-item {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid #334155;
+        padding: 15px 20px;
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: transform 0.2s;
+    }
+
+    .category-item:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+
+    .category-name {
+        font-weight: 500;
+        color: #e2e8f0;
+    }
+
+    .btn-delete {
+        background: transparent;
+        border: none;
+        color: #ef4444;
+        /* Red */
+        cursor: pointer;
+        padding: 5px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .btn-delete:hover {
+        opacity: 1;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: #64748b;
+        padding: 40px;
+        grid-column: 1 / -1;
+    }
+</style>
+
+<div class="dashboard-container">
+    <div class="container" style="max-width: 900px; margin: 0 auto;">
+
+        <div class="dashboard-header">
+            <h1>Spending Categories</h1>
+            <p>Define custom labels for the AI to sort your transactions.</p>
+        </div>
+
+        <!-- Add Category Section -->
+        <div class="card-glass" style="margin-bottom: 40px;">
+            <h3 style="margin-bottom: 20px; font-weight: 600;">Add New Category</h3>
+
+            <form method="POST" class="category-form">
+                {% csrf_token %}
+                <input type="text" name="category_name" class="form-input" placeholder="e.g., Gym, Groceries, Rent..."
+                    required>
+                <button type="submit" name="add_category" class="btn-add">
+                    <i class="fas fa-plus" style="margin-right: 8px;"></i> Add Category
+                </button>
+            </form>
+
+            <div style="margin-top: 15px;">
+                <span style="color: #64748b; font-size: 0.9rem; margin-right: 10px;">Quick Add:</span>
+                {% for suggestion in suggestions %}
+                <form method="POST" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="category_name" value="{{ suggestion }}">
+                    <button type="submit" name="add_category" style="
+                        background: rgba(59, 130, 246, 0.1); 
+                        border: 1px solid rgba(59, 130, 246, 0.2); 
+                        color: #60a5fa; 
+                        padding: 6px 14px; 
+                        border-radius: 20px; 
+                        cursor: pointer;
+                        font-size: 0.85rem;
+                        margin-right: 5px;
+                        margin-bottom: 5px;
+                    ">
+                        + {{ suggestion }}
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Existing Categories List -->
+        <div class="card-glass">
+            <h3 style="margin-bottom: 20px; font-weight: 600;">Your Categories</h3>
+
+            <div class="category-list">
+                {% for category in categories %}
+                <div class="category-item">
+                    <span class="category-name">{{ category.name }}</span>
+                    <form method="POST" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="category_id" value="{{ category.id }}">
+                        <button type="submit" name="delete_category" class="btn-delete" title="Delete Category">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+                {% empty %}
+                <div class="empty-state">
+                    <i class="fas fa-tags" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                    <p>No categories yet. Add some above to get started!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Smart Sorter - Intelligent Financial Organization{% endblock %}
+
+{% block content %}
+<!-- =====================================================
+     SMART SORTER FLAGSHIP LANDING PAGE
+     ===================================================== -->
+<style>
+    /* Inline-like Critical CSS for Carousel & Fixes */
+    .hero-container {
+        padding: 50px 24px 80px;
+        text-align: center;
+        background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%);
+        min-height: 85vh;
+        /* Ensure full viewport feel */
+    }
+
+    .main-title {
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 24px;
+        line-height: 1.1;
+        letter-spacing: -1px;
+    }
+
+    .subtitle {
+        font-size: 1.25rem;
+        color: #94a3b8;
+        max-width: 650px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+    }
+
+    /* Fixed CTA Buttons */
+    .cta-group {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 60px;
+        flex-wrap: wrap;
+    }
+
+    .btn-primary-glow {
+        background: #3b82f6;
+        color: white;
+        padding: 16px 40px;
+        /* Larger click area */
+        border-radius: 50px;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        /* Glow effect */
+        transition: all 0.3s ease;
+        border: 2px solid #3b82f6;
+        z-index: 10;
+        position: relative;
+    }
+
+    .btn-primary-glow:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.7);
+        background: #2563eb;
+        color: white;
+    }
+
+    .btn-secondary-glass {
+        background: rgba(255, 255, 255, 0.05);
+        color: white;
+        padding: 16px 40px;
+        border-radius: 50px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+        z-index: 10;
+        position: relative;
+    }
+
+    .btn-secondary-glass:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: white;
+        color: white;
+    }
+
+    /* CAROUSEL STYLING */
+    .carousel-frame {
+        max-width: 1000px;
+        margin: 0 auto;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: #111827;
+        /* Dark backing */
+    }
+
+    .carousel-item img {
+        width: 100%;
+        height: auto;
+        max-height: 600px;
+        object-fit: contain;
+        /* Ensure proper aspect ratio */
+    }
+
+    /* White container section for better text contrast if needed */
+    .feature-text-block {
+        background: rgba(30, 41, 59, 0.4);
+        padding: 20px;
+        border-radius: 12px;
+        margin-top: -80px;
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 80%;
+        max-width: 600px;
+    }
+
+    .icon-box {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        font-size: 1.5rem;
+        margin: 0 auto 20px;
+    }
+</style>
+
+<!-- HERO SECTION with CAROUSEL -->
+<section class="hero-container">
+    <h1 class="main-title">Organize Financial Data<br><span style="color: #3b82f6;">Without the Chaos</span></h1>
+    <p class="subtitle">AI-powered parsing for your messy CSVs and PDFs. Turn hours of manual spreadsheet work into
+        seconds of automated clarity.</p>
+
+    <div class="cta-group">
+        <a href="{% url 'signup' %}" class="btn-primary-glow">Start Free Trial</a>
+        <a href="#features" class="btn-secondary-glass">How It Works</a>
+    </div>
+
+    <!-- BOOTSTRAP CAROUSEL -->
+    <div id="dashboardCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="3000">
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="0" class="active"
+                aria-current="true"></button>
+            <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="1"></button>
+            <button type="button" data-bs-target="#dashboardCarousel" data-bs-slide-to="2"></button>
+        </div>
+
+        <div class="carousel-inner carousel-frame">
+            <!-- Slide 1: Analytics -->
+            <div class="carousel-item active">
+                <img src="{% static 'images/image1.png' %}" class="d-block w-100" alt="Financial Analytics Dashboard">
+                <div class="carousel-caption d-none d-md-block feature-text-block">
+                    <h5 style="color:white; margin:0; font-weight:600;">Real-time Analytics</h5>
+                    <p style="color:#cbd5e1; margin:0; font-size:0.9rem;">Visualize your spending patterns instantly.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Slide 2: Sorting -->
+            <div class="carousel-item">
+                <img src="{% static 'images/image2.png' %}" class="d-block w-100" alt="AI Sorting Visualization">
+                <div class="carousel-caption d-none d-md-block feature-text-block">
+                    <h5 style="color:white; margin:0; font-weight:600;">Intelligent Sorting</h5>
+                    <p style="color:#cbd5e1; margin:0; font-size:0.9rem;">Auto-categorization that learns from you.</p>
+                </div>
+            </div>
+
+            <!-- Slide 3: Reports -->
+            <div class="carousel-item">
+                <img src="{% static 'images/image3.png' %}" class="d-block w-100" alt="Monthly Reporting">
+                <div class="carousel-caption d-none d-md-block feature-text-block">
+                    <h5 style="color:white; margin:0; font-weight:600;">One-Click Reports</h5>
+                    <p style="color:#cbd5e1; margin:0; font-size:0.9rem;">Export clean, audit-ready data in seconds.</p>
+                </div>
+            </div>
+        </div>
+
+        <button class="carousel-control-prev" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+</section>
+
+<!-- FEATURES GRID -->
+<section id="features" style="padding: 80px 24px; background: #0f172a;">
+    <div style="max-width: 1100px; margin: 0 auto; text-align: center;">
+        <h2 style="font-size: 2.5rem; font-weight: 700; color: white; margin-bottom: 60px;">Unified Workflow</h2>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+            <div
+                style="background: #1e293b; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="icon-box"><i class="fas fa-upload"></i></div>
+                <h3 style="color: white; margin-bottom: 10px;">1. Upload</h3>
+                <p style="color: #94a3b8;">Drag and drop any messy file format.</p>
+            </div>
+
+            <div
+                style="background: #1e293b; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="icon-box"><i class="fas fa-brain"></i></div>
+                <h3 style="color: white; margin-bottom: 10px;">2. AI Sort</h3>
+                <p style="color: #94a3b8;">Our engine categorizes every row.</p>
+            </div>
+
+            <div
+                style="background: #1e293b; padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="icon-box"><i class="fas fa-file-export"></i></div>
+                <h3 style="color: white; margin-bottom: 10px;">3. Export</h3>
+                <p style="color: #94a3b8;">Download clean, sorted Excel files.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

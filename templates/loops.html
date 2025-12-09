@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CLEAN Loop Examples</title>
+</head>
+<body style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
+
+    <h1>All Loop Properties Explained</h1>
+    <p>All examples use your 4-item list from <code>views.py</code>.</p>
+    <hr>
+
+    <!-- 
+      EXAMPLE 1: A basic loop, just printing the item.
+    -->
+    <h2>Example 1: Basic Loop (<code>{{ task }}</code>)</h2>
+    <ul>
+        {% for task in tasks %}
+            <li>{{ task }}</li>
+        {% endfor %}
+    </ul>
+    <hr>
+
+    <!-- 
+      EXAMPLE 2: Using if forloop.first and if forloop.last
+    -->
+    <h2>Example 2: <code>forloop.first</code> and <code>forloop.last</code></h2>
+    <ul>
+        {% for task in tasks %}
+            {% if forloop.first %}
+                <li style="color: green; font-weight: bold;">
+                    {{ task }} (This is the first item)
+                </li>
+            {% elif forloop.last %}
+                <li style="color: red; font-weight: bold;">
+                    {{ task }} (This is the last item)
+                </li>
+            {% else %}
+                <li>{{ task }} (This is a middle item)</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+    <hr>
+
+    <!-- 
+      EXAMPLE 3: Using forloop.counter (starts at 1)
+    -->
+    <h2>Example 3: <code>forloop.counter</code> (Starts at 1)</h2>
+    {% for task in tasks %}
+        <p>{{ forloop.counter }}. {{ task }}</p>
+    {% endfor %}
+    <hr>
+
+    <!-- 
+      EXAMPLE 4: Using forloop.counter0 (starts at 0)
+    -->
+    <h2>Example 4: <code>forloop.counter0</code> (Starts at 0)</h2>
+    {% for task in tasks %}
+        <p>Index {{ forloop.counter0 }} is: {{ task }}</p>
+    {% endfor %}
+    <hr>
+
+    <!-- 
+      EXAMPLE 5: Using forloop.revcounter (counts down from 4)
+    -->
+    <h2>Example 5: <code>forloop.revcounter</code> (Counts down to 1)</h2>
+    {% for task in tasks %}
+        <p>
+            {{ forloop.revcounter }} items left (including this one). Current item: {{ task }}
+        </p>
+    {% endfor %}
+    <hr>
+
+    <!-- 
+      EXAMPLE 6: Using forloop.revcounter0 (counts down from 3)
+    -->
+    <h2>Example 6: <code>forloop.revcounter0</code> (Counts down to 0)</h2>
+    {% for task in tasks %}
+        <p>
+            {{ forloop.revcounter0 }} items left (after this one). Current item: {{ task }}
+        </p>
+    {% endfor %}
+    <hr>
+
+    <br>
+    <a href="{% url 'home' %}">Go Back Home</a>
+
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventory Dashboard</title>
+    <style>
+        /* 1. Basic Table Styling */
+        .styled-table {
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 0.9em;
+            font-family: sans-serif;
+            min-width: 400px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+            width: 100%;
+        }
+
+        /* 2. Header Styling (Green Background) */
+        .styled-table thead tr {
+            background-color: #009879;
+            color: #ffffff;
+            text-align: left;
+        }
+
+        /* 3. Cell Styling */
+        .styled-table th,
+        .styled-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        /* 4. Zebra Striping (Alternating Colors) */
+        .styled-table tbody tr:nth-of-type(even) {
+            background-color: #f3f3f3;
+        }
+
+        /* 5. Hover Effect */
+        .styled-table tbody tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer;
+        }
+
+        /* 6. Status Badges (The Logic Coloring) */
+        .badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+        .bg-green { background-color: #28a745; }
+        .bg-orange { background-color: #fd7e14; }
+        .bg-red { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div style="width: 80%; margin: 0 auto;">
+        <h1 style="text-align: center; color: #333;">📦 Current Inventory Status</h1>
+
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Stock Count</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for n in products %}
+                <tr>
+                    <td><strong>{{ n.name }}</strong></td>
+
+                    <td>{{ n.count }} Units</td>
+
+                    <td>
+                        {% if n.count > 10 %}
+                            <span class="badge bg-green">In Stock</span>
+                        {% elif n.count > 0 and n.count <= 10 %}
+                            <span class="badge bg-orange">Low Stock</span>
+                        {% else %}
+                            <span class="badge bg-red">Out of Stock</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>
