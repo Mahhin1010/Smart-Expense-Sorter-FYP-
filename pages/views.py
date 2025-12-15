@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Category
 from django.db import IntegrityError
+from django.contrib import messages
 
 from django.http import HttpResponse
 import datetime # We need this to get the current year for the copyright
@@ -122,16 +123,18 @@ def manage_categories_view(request):
             if category_name:
                 try:
                     Category.objects.create(user=request.user, name=category_name)
+                    messages.success(request, f"Category '{category_name}' added successfully!")
                 except IntegrityError:
-                    pass # Ignore duplicates quietly
+                    messages.error(request, f"Category '{category_name}' already exists.")
         
         elif 'delete_category' in request.POST:
             category_id = request.POST.get('category_id')
             try:
                 category = Category.objects.get(id=category_id, user=request.user)
                 category.delete()
+                messages.success(request, "Category deleted successfully.")
             except Category.DoesNotExist:
-                pass
+                messages.error(request, "Category could not be found.")
             
         return redirect('manage_categories')
 

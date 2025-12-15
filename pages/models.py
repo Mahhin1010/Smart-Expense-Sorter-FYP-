@@ -10,4 +10,4 @@ class Category(models.Model):
         unique_together = ('user', 'name')  # Unique per user
 
     def __str__(self):
-        return self.name
+        return self.name # Without this The repsoen will be like cat obj1 and cat obj2 this make sure that we get the actual nemas as a reuslt 
