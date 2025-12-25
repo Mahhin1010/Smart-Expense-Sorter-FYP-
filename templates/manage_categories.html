@@ -159,6 +159,31 @@
             transform: translateX(4px);
         }
     }
+
+    /* Message Styles */
+    .alert-msg {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 500;
+    }
+
+    .alert-msg-error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+        animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+    }
+
+    .alert-msg-success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+        animation: slideInDown 0.5s ease-out;
+    }
 </style>
 
 <div class="dashboard-container">
@@ -171,28 +196,10 @@
 
         <!-- Messages Block -->
         {% if messages %}
-        <div style="margin-bottom: 30px;">
+        <div class="message-container">
             {% for message in messages %}
-            <div style="
-                padding: 15px 20px; 
-                border-radius: 12px; 
-                margin-bottom: 10px;
-                display: flex; 
-                align-items: center; 
-                gap: 10px;
-                font-weight: 500;
-                {% if message.tags == 'error' %}
-                    background: rgba(239, 68, 68, 0.1); 
-                    border: 1px solid rgba(239, 68, 68, 0.2); 
-                    color: #fca5a5;
-                    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-                {% else %}
-                    background: rgba(16, 185, 129, 0.1); 
-                    border: 1px solid rgba(16, 185, 129, 0.2); 
-                    color: #6ee7b7;
-                    animation: slideInDown 0.5s ease-out;
-                {% endif %}
-            ">
+            <div
+                class="alert-msg {% if message.tags == 'error' %}alert-msg-error{% else %}alert-msg-success{% endif %}">
                 {% if message.tags == 'error' %}
                 <i class="fas fa-exclamation-circle"></i>
                 {% else %}

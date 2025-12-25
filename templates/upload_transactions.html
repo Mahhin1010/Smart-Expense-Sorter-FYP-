@@ -1,0 +1,690 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Upload Transactions - Smart Sorter{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-container {
+        padding: 50px 24px 80px;
+        background: #0f172a;
+        min-height: 100vh;
+        color: white;
+    }
+
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .dashboard-header p {
+        color: #94a3b8;
+        font-size: 1.1rem;
+    }
+
+    .card-glass {
+        background: #1e293b;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Upload Zone Styles */
+    .upload-zone {
+        border: 2px dashed #334155;
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: rgba(15, 23, 42, 0.5);
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.05);
+    }
+
+    .upload-zone i {
+        font-size: 3rem;
+        color: #3b82f6;
+        margin-bottom: 20px;
+    }
+
+    .upload-zone h3 {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+        color: #e2e8f0;
+    }
+
+    .upload-zone p {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .file-input-wrapper {
+        margin-top: 20px;
+    }
+
+    .file-input-wrapper input[type="file"] {
+        display: none;
+    }
+
+    .btn-upload {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border: none;
+        padding: 14px 35px;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-upload:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-upload:disabled {
+        background: #475569;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Browse Button - Premium Design */
+    .btn-browse {
+        background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+        color: white;
+        border: none;
+        padding: 18px 45px;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 1.05rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-browse::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s ease;
+    }
+
+    .btn-browse:hover::before {
+        left: 100%;
+    }
+
+    .btn-browse i {
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-browse:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 30px rgba(59, 130, 246, 0.5);
+    }
+
+    .btn-browse:active {
+        transform: translateY(-1px) scale(1.01);
+    }
+
+    /* Header Icon Style */
+    .header-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+        border-radius: 14px;
+        margin-right: 15px;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .header-icon i {
+        font-size: 1.5rem;
+        color: white;
+    }
+
+    /* Progress Bar Styles */
+    .progress-container {
+        margin-top: 30px;
+        display: none;
+    }
+
+    .progress-container.active {
+        display: block;
+    }
+
+    .progress-bar-wrapper {
+        background: #0f172a;
+        border-radius: 10px;
+        height: 24px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        border-radius: 10px;
+        width: 0%;
+        transition: width 0.3s ease;
+        position: relative;
+    }
+
+    .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent);
+        animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+
+        100% {
+            transform: translateX(100%);
+        }
+    }
+
+    .progress-text {
+        text-align: center;
+        margin-top: 10px;
+        color: #94a3b8;
+        font-size: 0.9rem;
+    }
+
+    /* Stats Display */
+    .stats-display {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 30px;
+    }
+
+    .stat-card {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .stat-card.success {
+        border-color: #22c55e;
+    }
+
+    .stat-card.warning {
+        border-color: #f59e0b;
+    }
+
+    .stat-card.info {
+        border-color: #3b82f6;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .stat-card.success .stat-number {
+        color: #22c55e;
+    }
+
+    .stat-card.warning .stat-number {
+        color: #f59e0b;
+    }
+
+    .stat-card.info .stat-number {
+        color: #3b82f6;
+    }
+
+    .stat-label {
+        color: #94a3b8;
+        font-size: 0.9rem;
+    }
+
+    /* Message Styles */
+    .message-container {
+        margin-bottom: 30px;
+    }
+
+    .alert {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-weight: 500;
+    }
+
+    .alert i {
+        font-size: 1.2rem;
+        margin-top: 2px;
+    }
+
+    .alert-success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+    }
+
+    .alert-warning {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        color: #fcd34d;
+    }
+
+    .alert-error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+    }
+
+    .alert-info {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        color: #93c5fd;
+    }
+
+    /* Sample Template Link */
+    .sample-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #60a5fa;
+        text-decoration: none;
+        font-size: 0.95rem;
+        margin-top: 20px;
+        padding: 10px 20px;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+
+    .sample-link:hover {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: #3b82f6;
+        color: #93c5fd;
+    }
+
+    /* Requirements Box */
+    .requirements-box {
+        background: rgba(59, 130, 246, 0.05);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 30px;
+    }
+
+    .requirements-box h4 {
+        color: #60a5fa;
+        margin-bottom: 15px;
+        font-size: 1rem;
+    }
+
+    .requirements-box ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .requirements-box li {
+        color: #94a3b8;
+        padding: 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+
+    .requirements-box li i {
+        color: #22c55e;
+    }
+
+    /* Selected File Display */
+    .selected-file {
+        display: none;
+        margin-top: 20px;
+        padding: 15px 20px;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 10px;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .selected-file.active {
+        display: flex;
+    }
+
+    .selected-file i {
+        color: #3b82f6;
+        font-size: 1.5rem;
+    }
+
+    .selected-file .file-name {
+        flex: 1;
+        color: #e2e8f0;
+        font-weight: 500;
+    }
+
+    .selected-file .btn-clear {
+        background: transparent;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 5px;
+    }
+
+    @media (max-width: 768px) {
+        .stats-display {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="dashboard-container">
+    <div class="container" style="max-width: 800px; margin: 0 auto;">
+
+        <div class="dashboard-header">
+            <h1>
+                <span class="header-icon"><i class="fas fa-file-import"></i></span>
+                Upload Transactions
+            </h1>
+            <p>Import your bank transactions from a CSV file for AI-powered categorization.</p>
+        </div>
+
+        <!-- Messages Block -->
+        {% if messages %}
+        <div class="message-container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {% if message.tags == 'success' %}
+                <i class="fas fa-check-circle"></i>
+                {% elif message.tags == 'warning' %}
+                <i class="fas fa-exclamation-triangle"></i>
+                {% elif message.tags == 'error' %}
+                <i class="fas fa-times-circle"></i>
+                {% else %}
+                <i class="fas fa-info-circle"></i>
+                {% endif %}
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if transactions %}
+        <!-- ============ DATA PREVIEW VIEW ============ -->
+        <div class="card-glass" style="margin-bottom: 30px;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 25px;">
+                <div
+                    style="width: 50px; height: 50px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-check" style="color: white; font-size: 1.5rem;"></i>
+                </div>
+                <div>
+                    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Import Complete!</h2>
+                    <p style="margin: 5px 0 0; color: #94a3b8; font-size: 0.95rem;">{{ transactions|length }}
+                        transaction(s) imported successfully</p>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div style="overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background: rgba(59, 130, 246, 0.1);">
+                            <th
+                                style="padding: 14px 16px; text-align: left; color: #94a3b8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                Date</th>
+                            <th
+                                style="padding: 14px 16px; text-align: left; color: #94a3b8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                Description</th>
+                            <th
+                                style="padding: 14px 16px; text-align: right; color: #94a3b8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                Amount</th>
+                            <th
+                                style="padding: 14px 16px; text-align: left; color: #94a3b8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 12px 16px; color: #e2e8f0;">{{ tx.date|date:"M d, Y" }}</td>
+                            <td style="padding: 12px 16px; color: #e2e8f0;">{{ tx.description|truncatechars:40 }}</td>
+                            <td
+                                style="padding: 12px 16px; text-align: right; font-weight: 600; {% if tx.amount >= 0 %}color: #10b981;{% else %}color: #ef4444;{% endif %}">
+                                ${{ tx.amount|floatformat:2 }}
+                            </td>
+                            <td style="padding: 12px 16px; color: #94a3b8;">{{ tx.notes|default:"-"|truncatechars:30 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Next Step: Process with AI -->
+        <div class="card-glass" style="text-align: center; padding: 40px;">
+            <h3 style="margin-bottom: 15px; font-weight: 600;">Ready for the next step?</h3>
+            <p style="color: #94a3b8; margin-bottom: 25px;">Let our AI categorize your transactions automatically.</p>
+            <a href="{% url 'ai_sorting' %}" class="btn-browse" style="text-decoration: none;">
+                <i class="fas fa-wand-magic-sparkles"></i> Process with AI
+            </a>
+            <div style="margin-top: 20px;">
+                <a href="{% url 'upload_transactions' %}"
+                    style="color: #94a3b8; text-decoration: none; font-size: 0.9rem;">
+                    <i class="fas fa-upload" style="margin-right: 5px;"></i> Upload more transactions
+                </a>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- ============ UPLOAD VIEW ============ -->
+
+        <!-- Upload Card -->
+        <div class="card-glass">
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+
+                <div class="upload-zone" id="uploadZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>Drag & Drop your CSV file here</h3>
+                    <p>or click to browse from your device</p>
+
+                    <div class="file-input-wrapper">
+                        <input type="file" name="file" id="csvFileInput" accept=".csv">
+                        <button type="button" class="btn-browse" id="browseBtn">
+                            <i class="fas fa-folder-open"></i>
+                            Browse Files
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selected File Display -->
+                <div class="selected-file" id="selectedFile">
+                    <i class="fas fa-file-csv"></i>
+                    <span class="file-name" id="fileName"></span>
+                    <button type="button" class="btn-clear" id="clearFile">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Processing...</div>
+                </div>
+
+                <!-- Submit Button -->
+                <div style="text-align: center; margin-top: 25px;">
+                    <button type="submit" class="btn-upload" id="submitBtn" disabled>
+                        <i class="fas fa-upload" style="margin-right: 8px;"></i>
+                        Upload & Process
+                    </button>
+                </div>
+            </form>
+
+            <!-- Sample Template Link -->
+            <div style="text-align: center;">
+                <a href="#" class="sample-link">
+                    <i class="fas fa-download"></i>
+                    Download Sample CSV Template
+                </a>
+            </div>
+
+            <!-- Requirements Box -->
+            <div class="requirements-box">
+                <h4><i class="fas fa-list-check" style="margin-right: 8px;"></i>CSV Requirements</h4>
+                <ul>
+                    <li><i class="fas fa-check"></i> <strong>Date</strong> - Transaction date (YYYY-MM-DD or DD/MM/YYYY)
+                    </li>
+                    <li><i class="fas fa-check"></i> <strong>Description</strong> - Transaction description from bank
+                    </li>
+                    <li><i class="fas fa-check"></i> <strong>Amount</strong> - Transaction amount (numbers only)</li>
+                    <li><i class="fas fa-check"></i> <strong>Notes</strong> - Optional notes or memo</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('csvFileInput');
+        const browseBtn = document.getElementById('browseBtn');
+        const selectedFile = document.getElementById('selectedFile');
+        const fileName = document.getElementById('fileName');
+        const clearFile = document.getElementById('clearFile');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        // Browse button click
+        browseBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            fileInput.click();
+        });
+
+        // Upload zone click
+        uploadZone.addEventListener('click', function () {
+            fileInput.click();
+        });
+
+        // Drag and drop handlers
+        uploadZone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', function (e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileDisplay(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', function () {
+            if (this.files.length > 0) {
+                updateFileDisplay(this.files[0]);
+            }
+        });
+
+        // Clear file
+        clearFile.addEventListener('click', function () {
+            fileInput.value = '';
+            selectedFile.classList.remove('active');
+            submitBtn.disabled = true;
+        });
+
+        // Update file display
+        function updateFileDisplay(file) {
+            fileName.textContent = file.name;
+            selectedFile.classList.add('active');
+            submitBtn.disabled = false;
+        }
+
+        // Form submit with progress animation
+        uploadForm.addEventListener('submit', function () {
+            progressContainer.classList.add('active');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Processing...';
+
+            // Simulate progress (actual processing happens server-side)
+            let progress = 0;
+            const interval = setInterval(function () {
+                progress += Math.random() * 15;
+                if (progress > 90) {
+                    progress = 90; // Hold at 90% until complete
+                    clearInterval(interval);
+                }
+                progressBar.style.width = progress + '%';
+                progressText.textContent = 'Processing... ' + Math.round(progress) + '%';
+            }, 200);
+        });
+    });
+</script>
+{% endblock %}
