@@ -323,20 +323,7 @@
             transform: translateX(-260px);
         }
 
-        .sidebar-logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: white;
-            font-weight: 700;
-            font-size: 1.4rem;
-            text-decoration: none;
-            margin-bottom: 3rem;
-        }
 
-        .sidebar-logo img {
-            height: 40px;
-        }
 
         .sidebar-menu {
             list-style: none;
@@ -416,24 +403,57 @@
             border-color: var(--primary-accent);
         }
 
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-logo:hover {
+            color: var(--primary-accent);
+        }
+
+        .sidebar-logo img {
+            height: 48px;
+            width: auto;
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.4));
+        }
+
         /* Close button inside sidebar */
         .sidebar-close {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: transparent;
-            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
             color: var(--text-muted);
-            font-size: 1.2rem;
+            font-size: 1rem;
             cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: all 0.2s;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
         }
 
         .sidebar-close:hover {
             color: #ef4444;
             background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
         }
 
         .user-profile-section {
@@ -479,15 +499,16 @@
 
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <!-- Close Button -->
-            <button class="sidebar-close" id="sidebarClose" title="Close Menu">
-                <i class="fas fa-times"></i>
-            </button>
-
-            <a href="{% url 'home' %}" class="sidebar-logo">
-                <img src="{% static 'images/logo_modern_v2.png' %}" alt="Logo">
-                Smart Sorter
-            </a>
+            <!-- Sidebar Header with Logo and Close Button -->
+            <div class="sidebar-header">
+                <a href="{% url 'home' %}" class="sidebar-logo">
+                    <img src="{% static 'images/logo_modern.svg' %}" alt="Logo">
+                    Smart Sorter
+                </a>
+                <button class="sidebar-close" id="sidebarClose" title="Close Menu">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
 
             <ul class="sidebar-menu">
                 <li>
@@ -547,7 +568,7 @@
             <nav id="main-navbar">
                 <div class="nav-container">
                     <a href="{% url 'home' %}" class="logo">
-                        <img src="{% static 'images/logo_modern_v2.png' %}" alt="Smart Sorter" style="height: 60px;">
+                        <img src="{% static 'images/logo_modern.svg' %}" alt="Smart Sorter" style="height: 48px;">
                         Smart Sorter
                     </a>
 
@@ -585,7 +606,7 @@
         <div class="footer-content">
             <div class="footer-brand">
                 <a href="#" class="logo">
-                    <img src="{% static 'images/logo_modern.png' %}" alt="Smart Sorter" style="height:32px;">
+                    <img src="{% static 'images/logo_modern.svg' %}" alt="Smart Sorter" style="height:32px;">
                     Smart Sorter
                 </a>
                 <p>Intelligent financial organization for modern businesses. Sort, analyze, and optimize your
