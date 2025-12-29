@@ -1,10 +1,12 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Smart Sorter - Intelligent Financial Organization{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/logo_modern.svg' %}">
 
     <!-- Google Fonts: Inter for that clean SaaS look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -294,7 +296,6 @@
 </head>
 
 <body>
-    {% load static %}
 
     {% if user.is_authenticated %}
     <!-- DASHBOARD LAYOUT FOR LOGGED IN USERS -->

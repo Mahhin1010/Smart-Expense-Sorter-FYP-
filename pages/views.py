@@ -1,125 +1,56 @@
+import csv
+import io
+import datetime
+from decimal import Decimal, InvalidOperation
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Category
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import TemplateView, FormView
+from django.views.generic import TemplateView, FormView, View
 from django.db import IntegrityError
 from django.contrib import messages
-
 from django.http import HttpResponse
-import datetime # We need this to get the current year for the copyright
+
+from .models import Category, Transaction
+from .forms import TransactionUploadForm
 
 # --- 1. UPDATED 'home_view' for your Smart Sorter project ---
-def home_view(request):
-    
-    # --- Data for Navigation Bar (Unchanged) ---
-    nav_links_data = [
-        {"name": "Home", "url": "#home"},
-        {"name": "Features", "url": "#features"},
-        {"name": "About", "url": "#about"},
-        {"name": "Login", "url": "#login"},
-    ]
+# --- 1. UPDATED 'home_view' for your Smart Sorter project ---
+# --- 1. UPDATED 'HomeView' (CBV) ---
+class HomeView(TemplateView):
+    """
+    Renders the landing page using a Class-Based View (TemplateView).
+    Strictly follows OOP principles.
+    """
+    template_name = 'home.html'
 
-  
-    # We just need the image path and alt text.
-    slider_items_data = [
-        {
-            "image_path": "images/image1.png",
-            "alt_text": "Tired of messy transaction files?"
-        },
-        {
-            "image_path": "images/image2.png",
-            "alt_text": "Boost your financial productivity"
-        },
-        {
-            "image_path": "images/image3.png",
-            "alt_text": "Start sorting now"
-        }
-    ]
 
-    # --- Data for "How It Works" (Updated with FA icons) ---
-    how_it_works_steps_data = [
-        {
-            "icon": "fa-upload",
-            "title": "Upload Your File",
-            "description": "Simply drag and drop your transaction files. We support CSV, Excel, PDF, and more. No formatting required!"
-        },
-        {
-            "icon": "fa-sync-alt",
-            "title": "Smart Sorting",
-            "description": "Our AI-powered engine automatically cleans, categorizes, and organizes your data with incredible accuracy."
-        },
-        {
-            "icon": "fa-chart-line",
-            "title": "Analyze & Export",
-            "description": "Get instant insights with beautiful charts and reports. Export clean data in your preferred format."
-        }
-    ]
-
-    # --- Data for Footer (Unchanged) ---
-    quick_links_data = [
-        {"name": "Features", "url": "#features"},
-        {"name": "About Us", "url": "#about"},
-        {"name": "Pricing", "url": "#pricing"},
-        {"name": "Contact", "url": "#contact"},
-    ]
-    
-    social_links_data = [  # <-- GOOD INDENTATION (4 spaces)
-        {"name": "LinkedIn", "icon_class": "fab fa-linkedin", "url": "#"},
-        {"name": "Facebook", "icon_class": "fab fa-facebook", "url": "#"},
-        {"name": "Twitter", "icon_class": "fab fa-twitter", "url": "#"},
-        {"name": "Instagram", "icon_class": "fab fa-instagram", "url": "#"},
-    ]
-    current_year = datetime.date.today().year
-    copyright_text = f"© {current_year} Smart Sorter. All rights reserved. | Privacy Policy | Terms of Service"
-
-    
-    # Check if we have products, if not create them (Prototype convenience)
-    # Product model removed in favor of Category model
-    products = []
-
-    # --- Put ALL data into ONE context dictionary ---
-    context = {
-        "nav_links": nav_links_data,
-        "slider_items": slider_items_data,
-        "how_it_works_steps": how_it_works_steps_data,
-        "quick_links": quick_links_data,
-        "social_links": social_links_data,
-        "copyright": copyright_text,
-        "products": products
-    }
-    
-    return render(request, 'home.html', context)
-
-# --- 2. Loop test view (unchanged) ---
-def loop_test_view(request):
-    task_list = ['Learn Django models', 'Practice Python loops', 'Build a new feature', 'Test forloop.last']
-    context = {'tasks': task_list}
-    return render(request, 'loops.html', context)
-
-# --- 3. post_detail_view (unchanged) ---
-def post_detail_view(request, post_id):
-    return HttpResponse(f"You are viewing the detail page for post ID: {post_id}")
-
-# --- 4. user_profile_view (unchanged) ---
-def user_profile_view(request, username):
-    return HttpResponse(f"<h1>Profile for: {username}</h1>")
-
-# --- 5. post_slug_view (unchanged) ---
-def post_slug_view(request, post_slug):
-    return HttpResponse(f"You are viewing the post with slug: {post_slug}")
-
-# --- 6. item_detail_view (unchanged) ---
-def item_detail_view(request, item_uuid):
-    return HttpResponse(f"Details for item with UUID: {item_uuid}")
 
 # --- 7. Manage Categories View (UC 2.1) ---
-@login_required
-def manage_categories_view(request):
-    # Default suggestions for users to quick-add
-    DEFAULT_SUGGESTIONS = ['Groceries', 'Rent', 'Utilities', 'Entertainment', 'Dining Out', 'Transport', 'Healthcare', 'Shopping']
-    
-    if request.method == 'POST':
+# --- 7. Manage Categories View (CBV) ---
+class ManageCategoriesView(LoginRequiredMixin, View):
+    """
+    Handles listing, adding, and deleting categories using strict OOP.
+    Separates GET (display) and POST (action) logic.
+    """
+    def get(self, request):
+        # Default suggestions for users to quick-add
+        DEFAULT_SUGGESTIONS = ['Groceries', 'Rent', 'Utilities', 'Entertainment', 'Dining Out', 'Transport', 'Healthcare', 'Shopping']
+        
+        # Get user's categories
+        user_categories = Category.objects.filter(user=request.user).order_by('name')
+        existing_names = set(c.name for c in user_categories)
+        
+        # Filter suggestions
+        suggestions = [s for s in DEFAULT_SUGGESTIONS if s not in existing_names]
+
+        context = {
+            'categories': user_categories,
+            'suggestions': suggestions[:5],
+        }
+        return render(request, 'manage_categories.html', context)
+
+    def post(self, request):
         if 'add_category' in request.POST:
             category_name = request.POST.get('category_name', '').strip()
             if category_name:
@@ -140,19 +71,6 @@ def manage_categories_view(request):
             
         return redirect('manage_categories')
 
-    # Get user's categories
-    user_categories = Category.objects.filter(user=request.user).order_by('name')
-    existing_names = set(c.name for c in user_categories)
-    
-    # Filter suggestions to only show ones the user hasn't added yet
-    suggestions = [s for s in DEFAULT_SUGGESTIONS if s not in existing_names]
-
-    context = {
-        'categories': user_categories,
-        'suggestions': suggestions[:5], # Show top 5 unused suggestions
-    }
-    return render(request, 'manage_categories.html', context)
-
 
 # --- 8. Upload Transactions View (UC 3.1) - Class-Based View ---
 class TransactionUploadView(LoginRequiredMixin, FormView):
@@ -161,16 +79,11 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
     Follows OOP best practices using Django's FormView.
     """
     template_name = 'upload_transactions.html'
-    form_class = None  # Set dynamically to avoid circular import
+    form_class = TransactionUploadForm
     
     # Required CSV headers (case-insensitive matching)
     REQUIRED_HEADERS = ['date', 'description', 'amount']
     OPTIONAL_HEADERS = ['notes']
-    
-    def get_form_class(self):
-        """Lazy import to avoid circular dependency."""
-        from .forms import TransactionUploadForm
-        return TransactionUploadForm
     
     def get_context_data(self, **kwargs):
         """Add stats and transactions to context."""
@@ -185,7 +98,6 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
         # Get recently imported transactions for preview
         transaction_ids = self.request.session.pop('imported_transaction_ids', [])
         if transaction_ids:
-            from .models import Transaction
             context['transactions'] = Transaction.objects.filter(
                 id__in=transaction_ids,
                 user=self.request.user
@@ -197,11 +109,6 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
     
     def form_valid(self, form):
         """Process the uploaded CSV file."""
-        from .models import Transaction
-        import csv
-        import io
-        from datetime import datetime
-        from decimal import Decimal, InvalidOperation
         
         stats = {
             'total_rows': 0,
@@ -344,18 +251,16 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
     
     def _parse_date(self, date_str):
         """Parse date string trying multiple formats."""
-        from datetime import datetime
         date_formats = ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']
         for fmt in date_formats:
             try:
-                return datetime.strptime(date_str, fmt).date()
+                return datetime.datetime.strptime(date_str, fmt).date()
             except ValueError:
                 continue
         return None
     
     def _parse_amount(self, amount_str):
         """Parse amount string, handling currency symbols."""
-        from decimal import Decimal, InvalidOperation
         cleaned = amount_str.replace(',', '').replace('$', '').replace('£', '').replace('€', '')
         try:
             return Decimal(cleaned)
@@ -363,10 +268,7 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
             return None
 
 
-# Keep the old function for backward compatibility during transition
-def upload_transactions_view(request):
-    """Deprecated: Use TransactionUploadView instead."""
-    return TransactionUploadView.as_view()(request)
+
 
 
 # --- 4. NEW Class-Based Views for Modules ---
