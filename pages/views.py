@@ -34,15 +34,16 @@ class ManageCategoriesView(LoginRequiredMixin, View):
     Separates GET (display) and POST (action) logic.
     """
     def get(self, request):
-        # Default suggestions for users to quick-add
-        DEFAULT_SUGGESTIONS = ['Groceries', 'Rent', 'Utilities', 'Entertainment', 'Dining Out', 'Transport', 'Healthcare', 'Shopping']
+        # Fetch default suggestions from the database (controlled by Admin)
+        from .models import DefaultCategory # Local import to avoid circular dependency if any
+        default_categories = DefaultCategory.objects.values_list('name', flat=True)
         
         # Get user's categories
         user_categories = Category.objects.filter(user=request.user).order_by('name')
         existing_names = set(c.name for c in user_categories)
         
-        # Filter suggestions
-        suggestions = [s for s in DEFAULT_SUGGESTIONS if s not in existing_names]
+        # Filter suggestions (exclude ones the user already has)
+        suggestions = [s for s in default_categories if s not in existing_names]
 
         context = {
             'categories': user_categories,

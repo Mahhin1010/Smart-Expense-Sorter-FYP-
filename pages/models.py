@@ -10,7 +10,22 @@ class Category(models.Model):
         unique_together = ('user', 'name')  # Unique per user
 
     def __str__(self):
-        return self.name # Without this The response will be like cat obj1 and cat obj2 this make sure that we get the actual names as a result 
+        return self.name 
+
+class DefaultCategory(models.Model):
+    """
+    Global default categories managed by Admins.
+    These appear as suggestions for all users in the Manage Categories view.
+    """
+    name = models.CharField(max_length=50, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Default Categories"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name 
 
 
 class Transaction(models.Model):

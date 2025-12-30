@@ -137,3 +137,67 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = 'manage_categories'
 LOGOUT_REDIRECT_URL = 'home'
+
+# --- JAZZMIN ADMIN SETTINGS ---
+JAZZMIN_SETTINGS = {
+    # Title of the window
+    "site_title": "Smart Sorter Admin",
+    # Title on the login screen
+    "site_header": "Smart Sorter",
+    # Brand text on the top left
+    "site_brand": "Smart Sorter",
+    # Logo to use for your site, must be present in static files, used for brand on top left
+    "site_logo": "images/logo_modern.svg",
+    # Logo to use for your site, must be present in static files, used for login form logo (defaults to site_logo)
+    "login_logo": "images/logo_modern.svg",
+    # CSS classes that are applied to the logo above
+    "site_logo_classes": "img-circle",
+    # Welcome text on the login screen
+    "welcome_sign": "Welcome to Smart Sorter Admin",
+    # Copyright on the footer
+    "copyright": "Smart Sorter Inc",
+    # List of model admins to search from the search bar, search defaults to all models
+    "search_model": "auth.User",
+    # Links to put along the top menu
+    "topmenu_links": [
+        {"name": "Home", "url": "home", "permissions": ["auth.view_user"]},
+    ],
+    # Custom icons for side menu apps/models See https://fontawesome.com/icons?d=gallery&m=free&v=5.0.0,5.0.1,5.0.10,5.0.11,5.0.12,5.0.13,5.1.0,5.1.1,5.2.0,5.3.0,5.3.1,5.4.0,5.4.1,5.4.2,5.13.0,5.12.0,5.11.2,5.11.1,5.10.0,5.6.0,5.5.0,5.4.2
+    # for the full list of 5.13.0 free icon classes
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "pages.Category": "fas fa-tags",
+        "pages.Transaction": "fas fa-exchange-alt",
+        "pages.DefaultCategory": "fas fa-list-ul",
+    },
+    # Order of the sidebar
+    "order_with_respect_to": ["pages", "auth.user", "auth.Group"],
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-dark",
+    "accent": "accent-primary",
+    "navbar": "navbar-dark",
+    "no_navbar_border": False,
+    "navbar_fixed": False,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "theme": "darkly",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    }
+}
