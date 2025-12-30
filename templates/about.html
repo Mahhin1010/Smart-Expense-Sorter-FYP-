@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}About Us - Smart Sorter{% endblock %}
+
+{% block content %}
+<section style="padding: 80px 24px; min-height: 80vh; background: var(--primary-bg);">
+    <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+        <h1 style="font-size: 3rem; font-weight: 800; color: white; margin-bottom: 24px;">About Smart Sorter</h1>
+        <p style="font-size: 1.25rem; color: var(--text-muted); line-height: 1.8; margin-bottom: 40px;">
+            Smart Sorter is built with a single mission: to remove the chaos from financial organization.
+            We believe that understanding your finances shouldn't require hours of manual work or complex spreadsheets.
+        </p>
+
+        <div
+            style="background: var(--secondary-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); text-align: left;">
+            <h2 style="color: white; font-size: 1.5rem; margin-bottom: 20px;">Our Story</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">
+                Started as a simple tool to organize personal expenses, Smart Sorter has grown into a powerful platform
+                that helps individuals and small businesses regain control over their financial data. By leveraging
+                intelligent categorization features, we turn valid but messy data into clear, actionable insights.
+            </p>
+
+            <h2 style="color: white; font-size: 1.5rem; margin-bottom: 20px; margin-top: 40px;">Our Philosophy</h2>
+            <p style="color: var(--text-muted);">
+                <strong>Simplicity First:</strong> We prioritize clean design and intuitive workflows.<br>
+                <strong>Privacy Centric:</strong> Your financial data belongs to you.<br>
+                <strong>Automation:</strong> Why do it manually if it can be done automatically?
+            </p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,6 @@
+Date,Description,Amount,Notes
+2023-12-01,Starbucks Coffee,5.50,Valid Row (Will be saved)
+2023-99-99,Invalid Date Error,20.00,Error: Month 99 doesn't exist
+2023-12-03,,15.00,Error: Description is empty
+2023-12-04,Netflix Subscription,Free,Error: Amount is text not number
+2023-12-05,Gym Membership,50.00,Valid Row (Will be saved)

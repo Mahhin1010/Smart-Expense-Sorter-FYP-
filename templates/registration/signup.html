@@ -17,7 +17,8 @@
 
                 {% for field in form %}
                 <div class="mb-4">
-                    <label class="form-label text-muted small fw-semibold text-uppercase">{{ field.label }}</label>
+                    <label class="form-label text-white small fw-semibold text-uppercase mb-2"
+                        style="letter-spacing: 0.5px;">{{ field.label }}</label>
                     {{ field }}
                     {% if field.help_text %}
                     <div class="small mt-1" style="color: var(--text-muted); opacity: 0.7;">{{ field.help_text }}</div>
