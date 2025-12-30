@@ -2,11 +2,15 @@
 
 from django.urls import path
 from . import views
-from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView
+from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView, AboutView, FeaturesView
 
 urlpatterns = [
     # Route 1: Home page
     path('', HomeView.as_view(), name='home'),
+    # Route 1.1: Static pages
+    path('about/', AboutView.as_view(), name='about'),
+    path('features/', FeaturesView.as_view(), name='features'),
+
     # Manage Categories (UC 2.1)
     path('categories/', ManageCategoriesView.as_view(), name='manage_categories'),
     

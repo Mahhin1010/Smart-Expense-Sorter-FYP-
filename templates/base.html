@@ -578,8 +578,8 @@
                     </button>
 
                     <ul class="nav-links" id="navLinks">
-                        <li><a href="features" class="nav-link">Features</a></li>
-                        <li><a href="about" class="nav-link">About</a></li>
+                        <li><a href="{% url 'features' %}" class="nav-link">Features</a></li>
+                        <li><a href="{% url 'about' %}" class="nav-link">About</a></li>
                         <li><a href="{% url 'login' %}" class="nav-link">Log In</a></li>
                         <li><a href="{% url 'signup' %}" class="btn-primary-custom">Get Started</a></li>
                     </ul>
@@ -617,7 +617,7 @@
             <div class="footer-col">
                 <h4>Product</h4>
                 <ul>
-                    <li><a href="#">Features</a></li>
+                    <li><a href="{% url 'features' %}">Features</a></li>
                     <li><a href="#">Pricing</a></li>
                 </ul>
             </div>
@@ -625,7 +625,7 @@
             <div class="footer-col">
                 <h4>Company</h4>
                 <ul>
-                    <li><a href="#">About Us</a></li>
+                    <li><a href="{% url 'about' %}">About Us</a></li>
                     <li><a href="#">Careers</a></li>
                 </ul>
             </div>

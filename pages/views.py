@@ -279,3 +279,9 @@ class AISortingView(LoginRequiredMixin, TemplateView):
 class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'analytics_dashboard.html'
 
+class AboutView(TemplateView):
+    template_name = 'about.html'
+
+class FeaturesView(TemplateView):
+    template_name = 'features.html'
+
