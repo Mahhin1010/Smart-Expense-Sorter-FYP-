@@ -9,7 +9,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView, FormView, View
 from django.db import IntegrityError
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+import json
 
 from .models import Category, Transaction
 from .forms import TransactionUploadForm
@@ -84,7 +85,20 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
     
     # Required CSV headers (case-insensitive matching)
     REQUIRED_HEADERS = ['date', 'description', 'amount']
-    OPTIONAL_HEADERS = ['notes']
+    OPTIONAL_HEADERS = ['notes', 'merchant_name', 'transaction_type', 'comments',
+                        'raw_description', 'merchant', 'type']
+
+    # Alias map: common CSV column names → our model field names
+    HEADER_ALIASES = {
+        'raw_description': 'description',
+        'merchant_name': 'merchant_name',
+        'merchant': 'merchant_name',
+        'transaction_type': 'transaction_type',
+        'type': 'transaction_type',
+        'comments': 'notes',
+        'notes': 'notes',
+        'memo': 'notes',
+    }
     
     def get_context_data(self, **kwargs):
         """Add stats and transactions to context."""
@@ -132,17 +146,25 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
                 messages.error(self.request, "CSV file appears to be empty or has no headers.")
                 return self.form_invalid(form)
             
-            # Validate required headers
-            missing_headers = [
-                h.capitalize() for h in self.REQUIRED_HEADERS 
-                if h not in actual_headers
-            ]
+            # Validate required headers (check aliases too)
+            description_aliases = {'description', 'raw_description'}
+            has_description = bool(description_aliases & set(actual_headers))
+            has_date = 'date' in actual_headers
+            has_amount = 'amount' in actual_headers
             
-            if missing_headers:
+            missing = []
+            if not has_date:
+                missing.append('Date')
+            if not has_description:
+                missing.append('Description')
+            if not has_amount:
+                missing.append('Amount')
+            
+            if missing:
                 messages.error(
                     self.request, 
-                    f"Missing required column(s): {', '.join(missing_headers)}. "
-                    f"Your CSV must have: Date, Description, Amount, Notes (optional)"
+                    f"Missing required column(s): {', '.join(missing)}. "
+                    f"Your CSV must have: Date, Description, Amount"
                 )
                 return self.form_invalid(form)
             
@@ -162,7 +184,7 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
                     for k, v in row.items()
                 }
                 
-                # Parse date (try multiple formats)
+                # Parse date (try multiple formats including datetime)
                 date_str = row_normalized.get('date', '')
                 parsed_date = self._parse_date(date_str)
                 
@@ -173,8 +195,11 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
                     )
                     continue
                 
-                # Parse description
-                description = row_normalized.get('description', '')
+                # Parse description (check aliases)
+                description = (
+                    row_normalized.get('description', '') or 
+                    row_normalized.get('raw_description', '')
+                )
                 if not description:
                     stats['errors'].append(f"Row {row_num}: Description cannot be empty.")
                     continue
@@ -188,15 +213,29 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
                     )
                     continue
                 
-                # Get optional notes
-                notes = row_normalized.get('notes', '') or None
+                # Extract optional signal fields via alias mapping
+                merchant_name = (
+                    row_normalized.get('merchant_name', '') or 
+                    row_normalized.get('merchant', '') or None
+                )
+                transaction_type = (
+                    row_normalized.get('transaction_type', '') or 
+                    row_normalized.get('type', '') or None
+                )
+                notes = (
+                    row_normalized.get('notes', '') or 
+                    row_normalized.get('comments', '') or 
+                    row_normalized.get('memo', '') or None
+                )
                 
-                # Create transaction object
+                # Create transaction object with all available fields
                 transactions_to_create.append(Transaction(
                     user=self.request.user,
                     date=parsed_date,
                     description=description[:255],
                     amount=amount,
+                    merchant_name=merchant_name[:100] if merchant_name else None,
+                    transaction_type=transaction_type[:50] if transaction_type else None,
                     notes=notes
                 ))
                 stats['successful'] += 1
@@ -251,8 +290,12 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
         return super().form_invalid(form)
     
     def _parse_date(self, date_str):
-        """Parse date string trying multiple formats."""
-        date_formats = ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']
+        """Parse date string trying multiple formats including datetime."""
+        date_formats = [
+            '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y',
+            '%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S',
+            '%d/%m/%Y %H:%M', '%d/%m/%Y %H:%M:%S',
+        ]
         for fmt in date_formats:
             try:
                 return datetime.datetime.strptime(date_str, fmt).date()
@@ -261,8 +304,17 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
         return None
     
     def _parse_amount(self, amount_str):
-        """Parse amount string, handling currency symbols."""
-        cleaned = amount_str.replace(',', '').replace('$', '').replace('£', '').replace('€', '')
+        """Parse amount string, handling currency symbols including PKR."""
+        cleaned = (amount_str
+                   .replace(',', '')
+                   .replace('$', '')
+                   .replace('£', '')
+                   .replace('€', '')
+                   .replace('₹', '')
+                   .replace('PKR', '')
+                   .replace('Rs.', '')
+                   .replace('Rs', '')
+                   .strip())
         try:
             return Decimal(cleaned)
         except (InvalidOperation, ValueError):
@@ -272,10 +324,120 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
 
 
 
-# --- 4. NEW Class-Based Views for Modules ---
+# --- 4. AI SORTING VIEW (UC 3.2) ---
 
-class AISortingView(LoginRequiredMixin, TemplateView):
+class AISortingView(LoginRequiredMixin, View):
+    """
+    Handles the AI-powered transaction classification workflow.
+
+    GET:  Renders the AI Sorting page with stats on uncategorized transactions.
+    POST: Triggers the classification pipeline via AICategorizationService.
+    """
     template_name = 'ai_sorting.html'
+
+    def get(self, request):
+        """Display the AI sorting page with current transaction stats."""
+        uncategorized_count = Transaction.objects.filter(
+            user=request.user,
+            category__isnull=True
+        ).count()
+
+        total_count = Transaction.objects.filter(user=request.user).count()
+
+        categorized_count = Transaction.objects.filter(
+            user=request.user,
+            category__isnull=False
+        ).count()
+
+        category_count = Category.objects.filter(user=request.user).count()
+
+        # Get recently classified transactions for results display
+        recent_ai_results = Transaction.objects.filter(
+            user=request.user,
+            is_ai_categorized=True
+        ).select_related('category').order_by('-created_at')[:50]
+
+        # Pass categories for the inline dropdowns
+        user_categories = Category.objects.filter(user=request.user).order_by('name')
+
+        context = {
+            'uncategorized_count': uncategorized_count,
+            'total_count': total_count,
+            'categorized_count': categorized_count,
+            'category_count': category_count,
+            'recent_ai_results': recent_ai_results,
+            'user_categories': user_categories,
+            'processing_result': request.session.pop('ai_processing_result', None),
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        """Trigger AI classification for all uncategorized transactions."""
+        from .ai_engine import AICategorizationService, AIServiceError
+
+        # Pre-flight checks
+        category_count = Category.objects.filter(user=request.user).count()
+        if category_count == 0:
+            messages.error(
+                request,
+                "You need to create spending categories before AI sorting. "
+                "Go to Manage Categories first."
+            )
+            return redirect('ai_sorting')
+
+        uncategorized_count = Transaction.objects.filter(
+            user=request.user,
+            category__isnull=True
+        ).count()
+
+        if uncategorized_count == 0:
+            messages.info(request, "All transactions are already categorized!")
+            return redirect('ai_sorting')
+
+        # Run the classification pipeline
+        try:
+            service = AICategorizationService()
+            result = service.process_user_transactions(request.user)
+
+            # Store results in session for display after redirect
+            request.session['ai_processing_result'] = {
+                'total_processed': result.total_processed,
+                'total_categorized': result.total_categorized,
+                'total_low_confidence': result.total_low_confidence,
+                'total_errors': result.total_errors,
+                'errors': result.errors[:5],
+            }
+
+            if result.total_categorized > 0:
+                messages.success(
+                    request,
+                    f"AI successfully categorized {result.total_categorized} "
+                    f"out of {result.total_processed} transactions!"
+                )
+            if result.total_low_confidence > 0:
+                messages.warning(
+                    request,
+                    f"{result.total_low_confidence} transaction(s) had low confidence "
+                    f"and were marked as 'Uncategorized' for manual review."
+                )
+            if result.total_errors > 0:
+                messages.error(
+                    request,
+                    f"{result.total_errors} transaction(s) could not be processed."
+                )
+            for error in result.errors[:3]:
+                messages.error(request, error)
+
+        except AIServiceError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(
+                request,
+                "AI Sorting delayed. Please refresh and try again."
+            )
+
+        return redirect('ai_sorting')
+
 
 class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'analytics_dashboard.html'
@@ -286,3 +448,51 @@ class AboutView(TemplateView):
 class FeaturesView(TemplateView):
     template_name = 'features.html'
 
+# Auto-reload trigger for .env file update
+
+class UpdateTransactionCategoryAPI(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to update a transaction's category inline.
+    Can also auto-create a category if 'create_new' is passed.
+    """
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body)
+            transaction_id = data.get('transaction_id')
+            category_name = data.get('category_name')
+            create_new = data.get('create_new', False)
+
+            if not transaction_id or not category_name:
+                return JsonResponse({'status': 'error', 'message': 'Missing data'}, status=400)
+
+            transaction = Transaction.objects.get(id=transaction_id, user=request.user)
+            category_name = category_name.strip()
+
+            if create_new:
+                # Get or create the category (ignoring case if possible, but exact match for now)
+                category, created = Category.objects.get_or_create(
+                    user=request.user, 
+                    name=category_name
+                )
+            else:
+                # Find the existing category
+                category = Category.objects.get(user=request.user, name=category_name)
+
+            # Update the transaction
+            transaction.category = category
+            transaction.ai_suggested_category = None # Clear suggestion once resolved
+            transaction.save(update_fields=['category', 'ai_suggested_category'])
+
+            return JsonResponse({
+                'status': 'success', 
+                'message': f"Category updated to {category.name}",
+                'category_id': category.id,
+                'category_name': category.name
+            })
+
+        except Transaction.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Transaction not found'}, status=404)
+        except Category.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Category not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

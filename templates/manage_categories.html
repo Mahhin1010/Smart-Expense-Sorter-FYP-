@@ -4,189 +4,9 @@
 {% block title %}Manage Categories - Smart Sorter{% endblock %}
 
 {% block content %}
-<style>
-    .dashboard-container {
-        padding: 50px 24px 80px;
-        background: #0f172a;
-        min-height: 100vh;
-        color: white;
-    }
 
-    .dashboard-header {
-        text-align: center;
-        margin-bottom: 50px;
-    }
 
-    .dashboard-header h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .dashboard-header p {
-        color: #94a3b8;
-        font-size: 1.1rem;
-    }
-
-    .card-glass {
-        background: #1e293b;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-
-    /* Form Styles */
-    .category-form {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 30px;
-        flex-wrap: wrap;
-    }
-
-    .form-input {
-        flex: 1;
-        background: #0f172a;
-        border: 1px solid #334155;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 50px;
-        outline: none;
-        transition: border-color 0.2s;
-        min-width: 200px;
-    }
-
-    .form-input:focus {
-        border-color: #3b82f6;
-    }
-
-    .btn-add {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        padding: 12px 30px;
-        border-radius: 50px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .btn-add:hover {
-        background: #2563eb;
-    }
-
-    /* Category List Styles */
-    .category-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 15px;
-    }
-
-    .category-item {
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid #334155;
-        padding: 15px 20px;
-        border-radius: 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: transform 0.2s;
-    }
-
-    .category-item:hover {
-        border-color: #3b82f6;
-        transform: translateY(-2px);
-    }
-
-    .category-name {
-        font-weight: 500;
-        color: #e2e8f0;
-    }
-
-    .btn-delete {
-        background: transparent;
-        border: none;
-        color: #ef4444;
-        /* Red */
-        cursor: pointer;
-        padding: 5px;
-        opacity: 0.7;
-        transition: opacity 0.2s;
-    }
-
-    .btn-delete:hover {
-        opacity: 1;
-    }
-
-    .empty-state {
-        text-align: center;
-        color: #64748b;
-        padding: 40px;
-        grid-column: 1 / -1;
-    }
-
-    @keyframes slideInDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes shake {
-
-        0%,
-        100% {
-            transform: translateX(0);
-        }
-
-        10%,
-        30%,
-        50%,
-        70%,
-        90% {
-            transform: translateX(-4px);
-        }
-
-        20%,
-        40%,
-        60%,
-        80% {
-            transform: translateX(4px);
-        }
-    }
-
-    /* Message Styles */
-    .alert-msg {
-        padding: 15px 20px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-weight: 500;
-    }
-
-    .alert-msg-error {
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.2);
-        color: #fca5a5;
-        animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
-    }
-
-    .alert-msg-success {
-        background: rgba(16, 185, 129, 0.1);
-        border: 1px solid rgba(16, 185, 129, 0.2);
-        color: #6ee7b7;
-        animation: slideInDown 0.5s ease-out;
-    }
-</style>
-
-<div class="dashboard-container">
+<div class="dashboard-container" style="background: var(--primary-bg); padding: 50px 24px 80px; min-height: 100vh;">
     <div class="container" style="max-width: 900px; margin: 0 auto;">
 
         <div class="dashboard-header">
@@ -226,15 +46,15 @@
             </form>
 
             <div style="margin-top: 15px;">
-                <span style="color: #64748b; font-size: 0.9rem; margin-right: 10px;">Quick Add:</span>
+                <span style="color: var(--text-muted); font-size: 0.9rem; margin-right: 10px;">Quick Add:</span>
                 {% for suggestion in suggestions %}
                 <form method="POST" style="display: inline;">
                     {% csrf_token %}
                     <input type="hidden" name="category_name" value="{{ suggestion }}">
                     <button type="submit" name="add_category" style="
-                        background: rgba(59, 130, 246, 0.1); 
-                        border: 1px solid rgba(59, 130, 246, 0.2); 
-                        color: #60a5fa; 
+                        background: var(--info-bg); 
+                        border: 1px solid var(--border-color); 
+                        color: var(--info-text); 
                         padding: 6px 14px; 
                         border-radius: 20px; 
                         cursor: pointer;

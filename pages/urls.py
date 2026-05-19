@@ -2,7 +2,7 @@
 
 from django.urls import path
 from . import views
-from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView, AboutView, FeaturesView
+from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView, AboutView, FeaturesView, UpdateTransactionCategoryAPI
 
 urlpatterns = [
     # Route 1: Home page
@@ -19,6 +19,7 @@ urlpatterns = [
 
     # AI Sorting (UC 4.1)
     path('ai-sorting/', AISortingView.as_view(), name='ai_sorting'),
+    path('api/update-category/', UpdateTransactionCategoryAPI.as_view(), name='api_update_category'),
 
     # Analytics Dashboard (UC 5.1)
     path('analytics/', AnalyticsDashboardView.as_view(), name='analytics_dashboard'),

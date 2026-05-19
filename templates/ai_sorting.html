@@ -1,92 +1,259 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}AI Sorting - Smart Sorter{% endblock %}
+{% block title %}AI Sorting — Smart Sorter{% endblock %}
 
 {% block content %}
-<style>
-    .dashboard-container {
-        padding: 50px 24px 80px;
-        background: #0f172a;
-        min-height: 100vh;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
 
-    .glass-card {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 60px 40px;
-        text-align: center;
-        max-width: 600px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    }
 
-    .icon-wrapper {
-        width: 100px;
-        height: 100px;
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 30px;
-        box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
-    }
-
-    .icon-wrapper i {
-        font-size: 3rem;
-        color: white;
-    }
-
-    h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 20px;
-        background: linear-gradient(to right, #fff, #94a3b8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    p {
-        color: #94a3b8;
-        font-size: 1.1rem;
-        line-height: 1.6;
-        margin-bottom: 40px;
-    }
-
-    .btn-return {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 12px 30px;
-        border-radius: 50px;
-        text-decoration: none;
-        font-weight: 600;
-        transition: all 0.3s;
-    }
-
-    .btn-return:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: translateY(-2px);
-    }
-</style>
-
-<div class="dashboard-container">
-    <div class="glass-card">
-        <div class="icon-wrapper">
-            <i class="fas fa-robot"></i>
-        </div>
-        <h1>AI Sorting Module</h1>
-        <p>The AI Classification Engine is currently under development. <br>Once active, this module will automatically
-            categorize your transactions using advanced machine learning algorithms.</p>
-        <a href="{% url 'upload_transactions' %}" class="btn-return">
-            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i> Back to Upload
-        </a>
+<div class="ai-container" style="background: var(--primary-bg); padding: 40px 24px 80px; min-height: 100vh;">
+    <!-- Header -->
+    <div class="ai-header">
+        <h1><i class="fas fa-robot" style="margin-right: 12px;"></i>AI Classification Engine</h1>
+        <p>Automatically categorize your transactions using Gemini AI</p>
     </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="ai-messages">
+        {% for message in messages %}
+        <div class="msg msg-{{ message.tags }}">
+            {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+            {% elif message.tags == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+            {% elif message.tags == 'error' %}<i class="fas fa-times-circle"></i>
+            {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card stat-pending">
+            <div class="stat-number">{{ uncategorized_count }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card stat-done">
+            <div class="stat-number">{{ categorized_count }}</div>
+            <div class="stat-label">Categorized</div>
+        </div>
+        <div class="stat-card stat-total">
+            <div class="stat-number">{{ total_count }}</div>
+            <div class="stat-label">Total Transactions</div>
+        </div>
+        <div class="stat-card stat-cats">
+            <div class="stat-number">{{ category_count }}</div>
+            <div class="stat-label">Categories</div>
+        </div>
+    </div>
+
+    <!-- Process Section -->
+    <div class="process-section">
+        <div class="process-card">
+            <div class="process-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+
+            {% if uncategorized_count > 0 and category_count > 0 %}
+                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">{{ uncategorized_count }} Transaction{{ uncategorized_count|pluralize }} Ready</h2>
+                <p style="color: #94a3b8; margin-bottom: 28px;">
+                    The AI will analyze descriptions, merchant names, and transaction types
+                    to assign the best category from your list.
+                </p>
+                <form method="post" id="ai-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-process" id="btn-process">
+                        <i class="fas fa-bolt"></i>
+                        <span id="btn-text">Process with AI</span>
+                        <span class="spinner" id="spinner"><i class="fas fa-circle-notch"></i></span>
+                    </button>
+                </form>
+            {% elif category_count == 0 %}
+                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">Categories Required</h2>
+                <p style="color: #94a3b8; margin-bottom: 28px;">
+                    You need to create spending categories before the AI can classify your transactions.
+                </p>
+                <a href="{% url 'manage_categories' %}" class="btn-process" style="text-decoration: none;">
+                    <i class="fas fa-tags"></i> Create Categories
+                </a>
+            {% elif uncategorized_count == 0 and total_count > 0 %}
+                <h2 style="margin-bottom: 12px; font-size: 1.3rem; color: #34d399;">
+                    <i class="fas fa-check-circle"></i> All Caught Up!
+                </h2>
+                <p style="color: var(--text-muted); margin-bottom: 28px;">
+                    All {{ total_count }} transaction{{ total_count|pluralize }} {{ total_count|pluralize:"has,have" }} been categorized.
+                </p>
+            {% else %}
+                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">No Transactions Found</h2>
+                <p style="color: var(--text-muted); margin-bottom: 28px;">
+                    Upload a CSV file first, then come back to classify your transactions.
+                </p>
+                <a href="{% url 'upload_transactions' %}" class="btn-process" style="text-decoration: none;">
+                    <i class="fas fa-upload"></i> Upload CSV
+                </a>
+            {% endif %}
+
+            <div style="margin-top: 20px;">
+                <a href="{% url 'upload_transactions' %}" class="btn-secondary-link">
+                    <i class="fas fa-upload"></i> Upload More Data
+                </a>
+                <a href="{% url 'manage_categories' %}" class="btn-secondary-link" style="margin-left: 8px;">
+                    <i class="fas fa-tags"></i> Manage Categories
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    {% if recent_ai_results %}
+    <div class="results-section">
+        <h2><i class="fas fa-table" style="margin-right: 8px; color: #818cf8;"></i>AI Classification Results</h2>
+        <div class="table-wrap">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Merchant</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in recent_ai_results %}
+                    <tr>
+                        <td>{{ txn.date|date:"d M Y" }}</td>
+                        <td>{{ txn.description|truncatechars:40 }}</td>
+                        <td>{{ txn.merchant_name|default:"—" }}</td>
+                        <td style="font-family: monospace;">{{ txn.amount|floatformat:0 }}</td>
+                        <td id="cat-cell-{{ txn.id }}">
+                            {% if txn.category.name == 'Uncategorized' %}
+                                <select class="inline-select" onchange="updateCategory({{ txn.id }}, this.value, false)">
+                                    <option value="Uncategorized" selected>Uncategorized</option>
+                                    {% for cat in user_categories %}
+                                        <option value="{{ cat.name }}">{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
+                                
+                                {% if txn.ai_suggested_category and txn.ai_suggested_category != 'Uncategorized' %}
+                                    <div id="sugg-{{ txn.id }}">
+                                        <button class="btn-suggestion" onclick="updateCategory({{ txn.id }}, '{{ txn.ai_suggested_category }}', true)">
+                                            ✨ Suggestion: {{ txn.ai_suggested_category }}
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <span class="category-tag">{{ txn.category.name }}</span>
+                            {% endif %}
+                        </td>
+                        <td id="conf-cell-{{ txn.id }}">
+                            {% if txn.ai_confidence >= 0.8 %}
+                                <span class="confidence-badge confidence-high">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% elif txn.ai_confidence >= 0.5 %}
+                                <span class="confidence-badge confidence-medium">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% elif txn.ai_confidence %}
+                                <span class="confidence-badge confidence-low">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% else %}
+                                <span style="color: #475569;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif total_count > 0 and categorized_count == 0 %}
+    <div class="results-section">
+        <div class="empty-state">
+            <i class="fas fa-robot"></i>
+            <p>No AI results yet. Click "Process with AI" to classify your transactions.</p>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+    // Show spinner on form submit and prevent double-click
+    const form = document.getElementById('ai-form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const btn = document.getElementById('btn-process');
+            const btnText = document.getElementById('btn-text');
+            const spinner = document.getElementById('spinner');
+            btn.disabled = true;
+            btnText.textContent = 'Processing...';
+            spinner.classList.add('active');
+        });
+    }
+
+    // CSRF Token Helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // AJAX Category Update
+    function updateCategory(transactionId, categoryName, createNew) {
+        if (!categoryName || categoryName === 'Uncategorized') return;
+        
+        const spinner = document.getElementById('spinner-' + transactionId);
+        if (spinner) spinner.classList.add('active');
+
+        fetch('{% url "api_update_category" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId,
+                category_name: categoryName,
+                create_new: createNew
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (spinner) spinner.classList.remove('active');
+            
+            if (data.status === 'success') {
+                // Update UI visually
+                const cell = document.getElementById('cat-cell-' + transactionId);
+                const confCell = document.getElementById('conf-cell-' + transactionId);
+                
+                // Replace dropdown/button with standard tag
+                cell.innerHTML = `<span class="category-tag" style="background: rgba(52, 211, 153, 0.2); color: #34d399;">${data.category_name}</span>`;
+                confCell.innerHTML = `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`;
+                
+                // Highlight row
+                cell.parentElement.classList.add('row-updated');
+            } else {
+                alert('Error updating category: ' + data.message);
+                // Reset select if failed
+                if(!createNew) {
+                    const select = cell.querySelector('select');
+                    if(select) select.value = 'Uncategorized';
+                }
+            }
+        })
+        .catch(error => {
+            if (spinner) spinner.classList.remove('active');
+            alert('A network error occurred.');
+            console.error('Error:', error);
+        });
+    }
+</script>
 {% endblock %}

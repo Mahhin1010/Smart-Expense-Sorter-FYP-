@@ -55,10 +55,37 @@ class Transaction(models.Model):
         decimal_places=2,
         help_text="Transaction amount (positive or negative)"
     )
+    merchant_name = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Merchant or payee name (e.g. Carrefour, Uber, K-Electric)"
+    )
+    transaction_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Transaction type (e.g. POS Swipe, Bill Payment, Wallet Transfer)"
+    )
     notes = models.TextField(
         null=True, 
         blank=True,
         help_text="Optional notes or memo"
+    )
+    ai_confidence = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="AI classification confidence score (0.0 to 1.0)"
+    )
+    is_ai_categorized = models.BooleanField(
+        default=False,
+        help_text="True if category was assigned by the AI engine"
+    )
+    ai_suggested_category = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Category suggested by AI when it falls into Uncategorized"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     
