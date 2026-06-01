@@ -9,3 +9,9 @@ env/
 
 # Environment variables (Safety)
 .env
+
+# Metabase files
+metabase.jar
+metabase.db.mv.db
+metabase.db.trace.db
+plugins/

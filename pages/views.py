@@ -442,6 +442,39 @@ class AISortingView(LoginRequiredMixin, View):
 class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'analytics_dashboard.html'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        import jwt
+        import time
+        from django.conf import settings
+
+        secret_key = settings.METABASE_EMBEDDING_SECRET_KEY
+        if not secret_key:
+            context['embed_error'] = "Metabase Embedding Key is not configured in .env."
+            return context
+
+        # Open-source Metabase allows embedding dashboards or questions.
+        # Typically, a dashboard is used. Change this ID if your dashboard ID is different.
+        dashboard_id = 2 
+        
+        payload = {
+            "resource": {"dashboard": dashboard_id},
+            "params": {
+                "user_id": self.request.user.id  # Passes logged-in user ID
+            },
+            "exp": int(time.time()) + (60 * 10)  # Link expires in 10 minutes
+        }
+        
+        try:
+            token = jwt.encode(payload, secret_key, algorithm="HS256")
+            context['iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{token}#bordered=true&titled=true"
+        except Exception as e:
+            context['embed_error'] = f"Failed to generate secure embed link: {str(e)}"
+            
+        return context
+
+
 class AboutView(TemplateView):
     template_name = 'about.html'
 

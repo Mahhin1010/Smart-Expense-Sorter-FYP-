@@ -4,19 +4,47 @@
 {% block title %}Analytics - Smart Sorter{% endblock %}
 
 {% block content %}
-
-
-<div class="dashboard-container" style="background: var(--primary-bg); padding: 50px 24px 80px; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
-    <div class="glass-card-analytics">
-        <div class="icon-wrapper-analytics">
-            <i class="fas fa-chart-pie"></i>
+<div class="dashboard-container" style="background: var(--primary-bg); padding: 40px 24px 80px; min-height: 100vh;">
+    <div style="max-width: 1400px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h1 style="color: #fff; font-size: 2rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">Financial Analytics</h1>
+            <a href="{% url 'home' %}" class="btn-return" style="text-decoration: none; padding: 10px 20px; background: rgba(255, 255, 255, 0.05); color: #fff; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; transition: all 0.3s ease;">
+                <i class="fas fa-arrow-left" style="margin-right: 8px;"></i> Back to Home
+            </a>
         </div>
-        <h1>Analytics Dashboard</h1>
-        <p>The Advanced Analytics module is coming soon. <br>Get ready for interactive charts, spending insights, and
-            financial health reports.</p>
-        <a href="{% url 'home' %}" class="btn-return">
-            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i> Back to Home
-        </a>
+
+        {% if embed_error %}
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 20px; border-radius: 12px; font-family: inherit;">
+                <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600;"><i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> Configuration Error</h4>
+                <p style="margin: 0; opacity: 0.9;">{{ embed_error }}</p>
+                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.7;">Please configure the `METABASE_EMBEDDING_SECRET_KEY` in your `.env` file and verify Metabase is running on port 3000.</p>
+            </div>
+        {% elif iframe_url %}
+            <!-- Beautiful Glassmorphism Container for the Iframe -->
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); height: 80vh; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+                <iframe
+                    src="{{ iframe_url }}"
+                    frameborder="0"
+                    width="100%"
+                    height="100%"
+                    style="border: none; background: transparent;"
+                    allowtransparency
+                ></iframe>
+            </div>
+        {% else %}
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; padding: 20px; border-radius: 12px; font-family: inherit;">
+                <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600;"><i class="fas fa-info-circle" style="margin-right: 8px;"></i> Information</h4>
+                <p style="margin: 0; opacity: 0.9;">Analytics server is loading. If this persists, verify your settings.</p>
+            </div>
+        {% endif %}
     </div>
 </div>
-{% endblock %}
+
+<style>
+    .btn-return:hover {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
