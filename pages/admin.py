@@ -1,8 +1,9 @@
 from django.contrib import admin
-from .models import Category, Transaction, DefaultCategory
+from .models import Category, Transaction, DefaultCategory, UploadedFile
 
 admin.site.register(Category)
 admin.site.register(DefaultCategory)
+admin.site.register(UploadedFile)
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):

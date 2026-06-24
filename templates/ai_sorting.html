@@ -7,6 +7,27 @@
 
 
 <div class="ai-container" style="background: var(--primary-bg); padding: 40px 24px 80px; min-height: 100vh;">
+    <style>
+        /* Custom Delete Button on Rows */
+        .btn-delete-txn {
+            background: transparent;
+            border: none;
+            color: #f43f5e;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .btn-delete-txn:hover {
+            background: rgba(244, 63, 94, 0.1);
+            color: #e11d48;
+        }
+        .row-fade-out {
+            opacity: 0 !important;
+            transform: scale(0.95);
+            transition: all 0.4s ease-out;
+        }
+    </style>
     <!-- Header -->
     <div class="ai-header">
         <h1><i class="fas fa-robot" style="margin-right: 12px;"></i>AI Classification Engine</h1>
@@ -119,11 +140,12 @@
                         <th>Amount</th>
                         <th>Category</th>
                         <th>Confidence</th>
+                        <th style="width: 60px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for txn in recent_ai_results %}
-                    <tr>
+                    <tr id="tx-row-{{ txn.id }}">
                         <td>{{ txn.date|date:"d M Y" }}</td>
                         <td>{{ txn.description|truncatechars:40 }}</td>
                         <td>{{ txn.merchant_name|default:"—" }}</td>
@@ -160,6 +182,11 @@
                                 <span style="color: #475569;">—</span>
                             {% endif %}
                         </td>
+                        <td style="text-align: center;">
+                            <button class="btn-delete-txn" onclick="deleteTransaction({{ txn.id }})" title="Delete Transaction">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -180,7 +207,13 @@
     // Show spinner on form submit and prevent double-click
     const form = document.getElementById('ai-form');
     if (form) {
-        form.addEventListener('submit', function() {
+        form.addEventListener('submit', function(e) {
+            // Check browser-side network connectivity
+            if (!navigator.onLine) {
+                e.preventDefault();
+                alert("You appear to be offline. Please connect to the internet before running the AI sorting process.");
+                return;
+            }
             const btn = document.getElementById('btn-process');
             const btnText = document.getElementById('btn-text');
             const spinner = document.getElementById('spinner');
@@ -204,6 +237,47 @@
             }
         }
         return cookieValue;
+    }
+
+    // Individual Delete Logic
+    function deleteTransaction(transactionId) {
+        if (!confirm("Are you sure you want to delete this transaction?")) {
+            return;
+        }
+
+        const row = document.getElementById('tx-row-' + transactionId);
+        
+        fetch('{% url "api_delete_transaction" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (row) {
+                    row.classList.add('row-fade-out');
+                    setTimeout(() => {
+                        row.remove();
+                        const remainingRows = document.querySelectorAll('tbody tr');
+                        if (remainingRows.length === 0) {
+                            window.location.reload();
+                        }
+                    }, 400);
+                }
+            } else {
+                alert('Error deleting transaction: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('A network error occurred.');
+            console.error('Error:', error);
+        });
     }
 
     // AJAX Category Update
