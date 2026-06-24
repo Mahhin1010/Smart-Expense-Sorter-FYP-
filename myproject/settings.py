@@ -22,6 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- AI ENGINE CONFIGURATION ---
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 
 # --- METABASE CONFIGURATION ---
 METABASE_SITE_URL = os.getenv('METABASE_SITE_URL', 'http://localhost:3000')

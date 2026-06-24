@@ -35,17 +35,22 @@ class UserSettingsView(LoginRequiredMixin, View):
         # Save provider
         profile.ai_provider = request.POST.get('ai_provider', 'gemini')
         
-        # Save Gemini settings
-        profile.gemini_model = request.POST.get('gemini_model', 'gemini-2.0-flash')
+        # Save Gemini settings (Hardcoded to gemini-2.0-flash)
+        profile.gemini_model = 'gemini-2.0-flash'
         profile.gemini_api_key = request.POST.get('gemini_api_key', '').strip() or None
         
-        # Save OpenAI settings
-        profile.openai_model = request.POST.get('openai_model', 'gpt-4o-mini')
+        # Save OpenAI settings (Hardcoded to gpt-4.1-nano)
+        profile.openai_model = 'gpt-4.1-nano'
         profile.openai_api_key = request.POST.get('openai_api_key', '').strip() or None
+        
+        # Save DeepSeek settings (Hardcoded to deepseek-chat)
+        profile.deepseek_model = 'deepseek-chat'
+        profile.deepseek_api_key = request.POST.get('deepseek_api_key', '').strip() or None
         
         profile.save()
         messages.success(request, "Settings saved successfully!")
         return redirect('user_settings')
+
 
 class TestAIKeyAPI(LoginRequiredMixin, View):
     def post(self, request):
@@ -53,18 +58,16 @@ class TestAIKeyAPI(LoginRequiredMixin, View):
             data = json.loads(request.body)
             provider = data.get('provider')
             key = data.get('key', '').strip()
-            model_name = data.get('model')
             
             if provider == 'gemini':
                 import google.generativeai as genai
-                # Fallback to system key if empty
                 test_key = key or getattr(settings, 'GEMINI_API_KEY', None)
                 if not test_key:
                     return JsonResponse({'status': 'error', 'message': 'No API Key configured.'})
                 
                 try:
                     genai.configure(api_key=test_key)
-                    model = genai.GenerativeModel(model_name or 'gemini-2.0-flash')
+                    model = genai.GenerativeModel('gemini-2.0-flash')
                     response = model.generate_content("Say OK", generation_config={"max_output_tokens": 10})
                     if response:
                         return JsonResponse({'status': 'success'})
@@ -75,33 +78,39 @@ class TestAIKeyAPI(LoginRequiredMixin, View):
                 if not key:
                     return JsonResponse({'status': 'error', 'message': 'API Key is required.'})
                 
-                headers = {
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": model_name or "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": "Say OK"}],
-                    "max_tokens": 5
-                }
                 try:
-                    res = requests.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        json=payload,
-                        headers=headers,
-                        timeout=10
+                    from openai import OpenAI
+                    client = OpenAI(api_key=key)
+                    response = client.chat.completions.create(
+                        model="gpt-4.1-nano",
+                        messages=[{"role": "user", "content": "Say OK"}],
+                        max_tokens=5
                     )
-                    if res.status_code == 200:
+                    if response:
                         return JsonResponse({'status': 'success'})
-                    else:
-                        try:
-                            err_msg = res.json().get('error', {}).get('message', 'Unknown error')
-                        except:
-                            err_msg = res.text
-                        return JsonResponse({'status': 'error', 'message': f"OpenAI: {err_msg}"})
                 except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': str(e)})
+                    return JsonResponse({'status': 'error', 'message': f"OpenAI: {str(e)}"})
+                    
+            elif provider == 'deepseek':
+                test_key = key or getattr(settings, 'DEEPSEEK_API_KEY', None)
+                if not test_key:
+                    return JsonResponse({'status': 'error', 'message': 'No API Key configured.'})
+                
+                try:
+                    from openai import OpenAI
+                    client = OpenAI(api_key=test_key, base_url="https://api.deepseek.com")
+                    response = client.chat.completions.create(
+                        model="deepseek-chat",
+                        messages=[{"role": "user", "content": "Say OK"}],
+                        max_tokens=5
+                    )
+                    if response:
+                        return JsonResponse({'status': 'success'})
+                except Exception as e:
+                    return JsonResponse({'status': 'error', 'message': f"DeepSeek: {str(e)}"})
             else:
                 return JsonResponse({'status': 'error', 'message': 'Invalid provider.'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': f"Failed: {str(e)}"})
+
+

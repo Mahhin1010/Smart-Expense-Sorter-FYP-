@@ -38,7 +38,7 @@
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">Choose which Large Language Model provider to use for transaction categorization.</p>
                 
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="provider-card" style="
                             display: block;
                             border: 2px solid {% if profile.ai_provider == 'gemini' %}var(--primary-accent){% else %}var(--glass-border){% endif %};
@@ -51,13 +51,13 @@
                             <div style="display: flex; align-items: center; gap: 15px;">
                                 <input type="radio" name="ai_provider" value="gemini" id="provider-gemini" {% if profile.ai_provider == 'gemini' %}checked{% endif %} style="accent-color: var(--primary-accent);" onchange="toggleProvider('gemini')">
                                 <div>
-                                    <div style="font-weight: 600; font-size: 1.05rem;"><i class="fas fa-robot" style="color: #60a5fa; margin-right: 8px;"></i>Google Gemini AI</div>
-                                    <small style="color: var(--text-muted); font-size: 0.8rem;">Supports Gemini 2.0 / 1.5 Flash models</small>
+                                    <div style="font-weight: 600; font-size: 1.05rem;"><i class="fas fa-robot" style="color: #60a5fa; margin-right: 8px;"></i>Google Gemini</div>
+                                    <small style="color: var(--text-muted); font-size: 0.8rem;">Supports gemini-2.0-flash</small>
                                 </div>
                             </div>
                         </label>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="provider-card" style="
                             display: block;
                             border: 2px solid {% if profile.ai_provider == 'openai' %}var(--primary-accent){% else %}var(--glass-border){% endif %};
@@ -71,7 +71,26 @@
                                 <input type="radio" name="ai_provider" value="openai" id="provider-openai" {% if profile.ai_provider == 'openai' %}checked{% endif %} style="accent-color: var(--primary-accent);" onchange="toggleProvider('openai')">
                                 <div>
                                     <div style="font-weight: 600; font-size: 1.05rem;"><i class="fas fa-bolt" style="color: #10b981; margin-right: 8px;"></i>OpenAI</div>
-                                    <small style="color: var(--text-muted); font-size: 0.8rem;">Supports GPT-4o-mini / GPT-4o / GPT-3.5</small>
+                                    <small style="color: var(--text-muted); font-size: 0.8rem;">Supports gpt-4.1-nano</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="provider-card" style="
+                            display: block;
+                            border: 2px solid {% if profile.ai_provider == 'deepseek' %}var(--primary-accent){% else %}var(--glass-border){% endif %};
+                            background: {% if profile.ai_provider == 'deepseek' %}var(--accent-glow){% else %}rgba(255, 255, 255, 0.02){% endif %};
+                            padding: 20px;
+                            border-radius: var(--radius-md);
+                            cursor: pointer;
+                            transition: all 0.25s;
+                        " id="deepseek-card">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <input type="radio" name="ai_provider" value="deepseek" id="provider-deepseek" {% if profile.ai_provider == 'deepseek' %}checked{% endif %} style="accent-color: var(--primary-accent);" onchange="toggleProvider('deepseek')">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 1.05rem;"><i class="fas fa-brain" style="color: #a855f7; margin-right: 8px;"></i>DeepSeek AI</div>
+                                    <small style="color: var(--text-muted); font-size: 0.8rem;">Supports deepseek-chat</small>
                                 </div>
                             </div>
                         </label>
@@ -85,13 +104,7 @@
             <div id="gemini-config-section" style="{% if profile.ai_provider != 'gemini' %}display: none;{% endif %}">
                 <h4 style="font-weight: 600; margin-bottom: 20px;"><i class="fas fa-robot" style="color: #60a5fa; margin-right: 10px;"></i>Google Gemini Settings</h4>
                 
-                <div style="margin-bottom: 25px;">
-                    <label class="form-label" style="font-weight: 500; margin-bottom: 8px;">Preferred Gemini Model</label>
-                    <select name="gemini_model" class="form-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); color: var(--text-main); padding: 10px; border-radius: var(--radius-md);">
-                        <option value="gemini-1.5-flash" {% if profile.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash (Recommended - Default)</option>
-                        <option value="gemini-2.0-flash" {% if profile.gemini_model == 'gemini-2.0-flash' %}selected{% endif %}>Gemini 2.0 Flash (Fast)</option>
-                    </select>
-                </div>
+
 
                 <div style="margin-bottom: 25px;">
                     <label class="form-label" style="font-weight: 500; margin-bottom: 8px;">Personal Gemini API Key (Optional)</label>
@@ -114,13 +127,7 @@
             <div id="openai-config-section" style="{% if profile.ai_provider != 'openai' %}display: none;{% endif %}">
                 <h4 style="font-weight: 600; margin-bottom: 20px;"><i class="fas fa-bolt" style="color: #10b981; margin-right: 10px;"></i>OpenAI Settings</h4>
                 
-                <div style="margin-bottom: 25px;">
-                    <label class="form-label" style="font-weight: 500; margin-bottom: 8px;">Preferred OpenAI Model</label>
-                    <select name="openai_model" class="form-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); color: var(--text-main); padding: 10px; border-radius: var(--radius-md);">
-                        <option value="gpt-4o-mini" {% if profile.openai_model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o-mini (Recommended - Cheap & Basic)</option>
-                        <option value="gpt-3.5-turbo" {% if profile.openai_model == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo (Basic)</option>
-                    </select>
-                </div>
+
 
                 <div style="margin-bottom: 25px;">
                     <label class="form-label" style="font-weight: 500; margin-bottom: 8px;">Personal OpenAI API Key</label>
@@ -137,6 +144,27 @@
                     <i class="fas fa-link" style="margin-right: 8px;"></i> Test OpenAI Connection
                 </button>
                 <span id="openai-test-status" style="margin-left: 15px; font-weight: 500; font-size: 0.9rem;"></span>
+            </div>
+
+            <!-- DeepSeek Configurations -->
+            <div id="deepseek-config-section" style="{% if profile.ai_provider != 'deepseek' %}display: none;{% endif %}">
+                <h4 style="font-weight: 600; margin-bottom: 20px;"><i class="fas fa-brain" style="color: #a855f7; margin-right: 10px;"></i>DeepSeek Settings</h4>
+                
+                <div style="margin-bottom: 25px;">
+                    <label class="form-label" style="font-weight: 500; margin-bottom: 8px;">Personal DeepSeek API Key (Optional)</label>
+                    <div style="position: relative;">
+                        <input type="password" name="deepseek_api_key" id="deepseek-api-key-input" class="form-input" style="width: 100%; padding-right: 45px;" placeholder="DeepSeek Key (e.g. sk-...)" value="{{ profile.deepseek_api_key|default:'' }}">
+                        <button type="button" onclick="togglePasswordVisibility('deepseek-api-key-input')" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted);"><i class="fas fa-eye" id="deepseek-api-key-input-eye"></i></button>
+                    </div>
+                    <small style="color: var(--text-muted); display: block; margin-top: 6px; font-size: 0.85rem;">
+                        If left blank, the system falls back to the host's global environment `DEEPSEEK_API_KEY`. Get your key from the official <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary-accent);">DeepSeek Platform</a>.
+                    </small>
+                </div>
+
+                <button type="button" class="btn-outline-custom" onclick="testKeyConnection('deepseek')" style="padding: 10px 20px; border-radius: var(--radius-md); font-size: 0.9rem;">
+                    <i class="fas fa-link" style="margin-right: 8px;"></i> Test DeepSeek Connection
+                </button>
+                <span id="deepseek-test-status" style="margin-left: 15px; font-weight: 500; font-size: 0.9rem;"></span>
             </div>
 
             <hr style="border-top: 1px solid var(--border-color); margin: 35px 0;">
@@ -157,30 +185,41 @@
 </div>
 
 <script>
-    // Handles show/hide toggles between Gemini and OpenAI configurations
+    // Handles show/hide toggles between Gemini, OpenAI, and DeepSeek configurations
     function toggleProvider(provider) {
         const geminiCard = document.getElementById('gemini-card');
         const openaiCard = document.getElementById('openai-card');
+        const deepseekCard = document.getElementById('deepseek-card');
         
         const geminiSection = document.getElementById('gemini-config-section');
         const openaiSection = document.getElementById('openai-config-section');
+        const deepseekSection = document.getElementById('deepseek-config-section');
+
+        // Reset cards styling
+        geminiCard.style.border = '2px solid var(--glass-border)';
+        geminiCard.style.background = 'rgba(255, 255, 255, 0.02)';
+        openaiCard.style.border = '2px solid var(--glass-border)';
+        openaiCard.style.background = 'rgba(255, 255, 255, 0.02)';
+        deepseekCard.style.border = '2px solid var(--glass-border)';
+        deepseekCard.style.background = 'rgba(255, 255, 255, 0.02)';
+
+        // Hide sections
+        geminiSection.style.display = 'none';
+        openaiSection.style.display = 'none';
+        deepseekSection.style.display = 'none';
 
         if (provider === 'gemini') {
             geminiCard.style.border = '2px solid var(--primary-accent)';
             geminiCard.style.background = 'var(--accent-glow)';
-            openaiCard.style.border = '2px solid var(--glass-border)';
-            openaiCard.style.background = 'rgba(255, 255, 255, 0.02)';
-            
             geminiSection.style.display = 'block';
-            openaiSection.style.display = 'none';
-        } else {
+        } else if (provider === 'openai') {
             openaiCard.style.border = '2px solid var(--primary-accent)';
             openaiCard.style.background = 'var(--accent-glow)';
-            geminiCard.style.border = '2px solid var(--glass-border)';
-            geminiCard.style.background = 'rgba(255, 255, 255, 0.02)';
-            
             openaiSection.style.display = 'block';
-            geminiSection.style.display = 'none';
+        } else if (provider === 'deepseek') {
+            deepseekCard.style.border = '2px solid var(--primary-accent)';
+            deepseekCard.style.background = 'var(--accent-glow)';
+            deepseekSection.style.display = 'block';
         }
     }
 
@@ -203,14 +242,13 @@
     function testKeyConnection(provider) {
         const statusSpan = document.getElementById(provider + '-test-status');
         let key = '';
-        let model = '';
 
         if (provider === 'gemini') {
             key = document.getElementById('gemini-api-key-input').value;
-            model = document.querySelector('select[name="gemini_model"]').value;
-        } else {
+        } else if (provider === 'openai') {
             key = document.getElementById('openai-api-key-input').value;
-            model = document.querySelector('select[name="openai_model"]').value;
+        } else if (provider === 'deepseek') {
+            key = document.getElementById('deepseek-api-key-input').value;
         }
 
         statusSpan.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: var(--primary-accent); margin-right: 8px;"></i>Testing connection...';
@@ -224,8 +262,7 @@
             },
             body: JSON.stringify({
                 provider: provider,
-                key: key,
-                model: model
+                key: key
             })
         })
         .then(response => response.json())
@@ -245,3 +282,4 @@
     }
 </script>
 {% endblock %}
+

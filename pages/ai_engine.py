@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from django.conf import settings
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class GeminiClassifier:
     Model: gemini-1.5-flash (optimized for speed + cost at scale).
     """
 
-    MODEL_NAME = 'gemini-1.5-flash'
+    MODEL_NAME = 'gemini-2.0-flash'
     TIMEOUT_SECONDS = 30
 
     SYSTEM_PROMPT_TEMPLATE = """You are a financial transaction classifier for Pakistani bank statements.
@@ -169,7 +170,6 @@ TRANSACTIONS (Format: ID|Description|Merchant|Type|Amount|Comments):
                 from accounts.models import UserProfile
                 profile = user.profile
                 api_key = profile.gemini_api_key
-                model_name = profile.gemini_model or self.MODEL_NAME
             except Exception as e:
                 logger.warning(f"Failed to fetch user profile: {e}")
 
@@ -186,7 +186,7 @@ TRANSACTIONS (Format: ID|Description|Merchant|Type|Amount|Comments):
         genai.configure(api_key=api_key)
         return genai.GenerativeModel(model_name)
 
-    def classify_batch(self, batch_payload: list, category_names: list, user=None) -> list[dict]:
+    def classify_batch(self, batch_payload: str, category_names: list, user=None) -> list[dict]:
         """
         Send a batch of transactions to Gemini and return parsed results.
         """
@@ -195,7 +195,7 @@ TRANSACTIONS (Format: ID|Description|Merchant|Type|Amount|Comments):
         # Build the prompt
         prompt = self.SYSTEM_PROMPT_TEMPLATE.format(
             categories=json.dumps(category_names),
-            transactions=json.dumps(batch_payload, indent=2)
+            transactions=batch_payload
         )
 
         # Attempt classification with retry logic and exponential backoff
@@ -294,8 +294,8 @@ TRANSACTIONS (Format: ID|Description|Merchant|Type|Amount|Comments):
 
 class OpenAIClassifier:
     """
-    Handles communication with OpenAI's Chat Completions API.
-    Supports custom user keys and selected models.
+    Handles communication with OpenAI's Chat Completions API using official SDK.
+    Locks model usage to gpt-4.1-nano.
     """
 
     def classify_batch(self, batch_payload: str, category_names: list, user) -> list[dict]:
@@ -304,23 +304,14 @@ class OpenAIClassifier:
         if not api_key:
             raise ValueError("OpenAI API key is missing. Please add your key in Settings.")
 
-        model_name = profile.openai_model or "gpt-4o-mini"
-
         # Build prompt using same template
         prompt = GeminiClassifier.SYSTEM_PROMPT_TEMPLATE.format(
             categories=json.dumps(category_names),
             transactions=batch_payload
         )
 
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": model_name,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1
-        }
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
 
         last_error = None
         retries = 3
@@ -329,30 +320,22 @@ class OpenAIClassifier:
         for attempt in range(retries + 1):
             try:
                 start_time = time.time()
-                response = requests.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=30
+                response = client.chat.completions.create(
+                    model="gpt-4.1-nano",
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0
                 )
                 
                 elapsed = time.time() - start_time
                 logger.info(f"OpenAI API call completed in {elapsed:.2f}s (attempt {attempt + 1}/{retries + 1})")
 
-                if response.status_code == 200:
-                    response_json = response.json()
-                    content = response_json["choices"][0]["message"]["content"]
-                    
-                    return GeminiClassifier()._parse_response(content)
-                elif response.status_code == 429:
-                    last_error = f"OpenAI Rate Limit (429): {response.text}"
-                    logger.warning(f"OpenAI 429 Rate Limit (attempt {attempt + 1}): {response.text}")
-                else:
-                    last_error = f"OpenAI Error {response.status_code}: {response.text}"
-                    logger.warning(f"OpenAI error (attempt {attempt + 1}): {response.text}")
+                content = response.choices[0].message.content
+                return GeminiClassifier()._parse_response(content)
 
             except Exception as e:
-                last_error = f"OpenAI connection error: {str(e)}"
+                last_error = f"OpenAI error: {str(e)}"
                 logger.warning(f"OpenAI call failed (attempt {attempt + 1}): {e}")
 
             # Backoff before retry
@@ -364,6 +347,75 @@ class OpenAIClassifier:
         raise AIServiceError(
             f"AI Sorting failed after {retries + 1} attempts. Last error: {last_error}"
         )
+
+
+# ---------------------------------------------------------------------------
+# 3.2. DEEPSEEK CLASSIFIER [NEW]
+# ---------------------------------------------------------------------------
+
+class DeepSeekClassifier:
+    """
+    Handles communication with DeepSeek's API using the official openai SDK.
+    Locks model usage to deepseek-chat.
+    """
+
+    def classify_batch(self, batch_payload: str, category_names: list, user) -> list[dict]:
+        profile = user.profile
+        api_key = profile.deepseek_api_key
+        if not api_key:
+            api_key = getattr(settings, 'DEEPSEEK_API_KEY', None)
+
+        if not api_key:
+            raise ValueError(
+                "DEEPSEEK_API_KEY is not configured. "
+                "Add it to your .env file or save it in your Settings page."
+            )
+
+        # Build prompt using same template
+        prompt = GeminiClassifier.SYSTEM_PROMPT_TEMPLATE.format(
+            categories=json.dumps(category_names),
+            transactions=batch_payload
+        )
+
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+
+        last_error = None
+        retries = 3
+        backoff_delays = [5, 15, 30]
+
+        for attempt in range(retries + 1):
+            try:
+                start_time = time.time()
+                response = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0
+                )
+                
+                elapsed = time.time() - start_time
+                logger.info(f"DeepSeek API call completed in {elapsed:.2f}s (attempt {attempt + 1}/{retries + 1})")
+
+                content = response.choices[0].message.content
+                return GeminiClassifier()._parse_response(content)
+
+            except Exception as e:
+                last_error = f"DeepSeek error: {str(e)}"
+                logger.warning(f"DeepSeek call failed (attempt {attempt + 1}): {e}")
+
+            # Backoff before retry
+            if attempt < retries:
+                sleep_time = backoff_delays[attempt]
+                logger.info(f"Retrying DeepSeek call in {sleep_time} seconds...")
+                time.sleep(sleep_time)
+
+        raise AIServiceError(
+            f"AI Sorting failed after {retries + 1} attempts. Last error: {last_error}"
+        )
+
+
 
 
 
@@ -484,8 +536,12 @@ class AICategorizationService:
                 if ai_provider == 'openai':
                     openai_classifier = OpenAIClassifier()
                     ai_results = openai_classifier.classify_batch(payload, category_names, user)
+                elif ai_provider == 'deepseek':
+                    deepseek_classifier = DeepSeekClassifier()
+                    ai_results = deepseek_classifier.classify_batch(payload, category_names, user)
                 else:
                     ai_results = self.classifier.classify_batch(payload, category_names, user)
+
 
                 validated = ResponseValidator.validate(ai_results, category_name_set)
                 batch_map = {txn.id: txn for txn in batch}

@@ -431,7 +431,8 @@ class PagesSystemTests(TestCase):
             'gemini_model': 'gemini-1.5-flash',
             'gemini_api_key': 'test-gemini-key',
             'openai_model': 'gpt-4o-mini',
-            'openai_api_key': 'test-openai-key'
+            'openai_api_key': 'test-openai-key',
+            'deepseek_api_key': 'test-deepseek-key'
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
@@ -439,13 +440,15 @@ class PagesSystemTests(TestCase):
         # Verify settings saved
         self.user_a.profile.refresh_from_db()
         self.assertEqual(self.user_a.profile.ai_provider, 'openai')
-        self.assertEqual(self.user_a.profile.gemini_model, 'gemini-1.5-flash')
+        self.assertEqual(self.user_a.profile.gemini_model, 'gemini-2.0-flash')
         self.assertEqual(self.user_a.profile.gemini_api_key, 'test-gemini-key')
-        self.assertEqual(self.user_a.profile.openai_model, 'gpt-4o-mini')
+        self.assertEqual(self.user_a.profile.openai_model, 'gpt-4.1-nano')
         self.assertEqual(self.user_a.profile.openai_api_key, 'test-openai-key')
+        self.assertEqual(self.user_a.profile.deepseek_model, 'deepseek-chat')
+        self.assertEqual(self.user_a.profile.deepseek_api_key, 'test-deepseek-key')
 
-    @patch('pages.ai_engine.requests.post')
-    def test_tc_28_openai_classifier_logic(self, mock_post):
+    @patch('pages.ai_engine.OpenAI')
+    def test_tc_28_openai_classifier_logic(self, mock_openai_class):
         """TC-28: Verify that AICategorizationService routes classification to OpenAI when selected."""
         import unittest
         # Setup provider as openai
@@ -463,27 +466,73 @@ class PagesSystemTests(TestCase):
         )
 
         # Mock OpenAI API successful response
+        mock_client = mock_openai_class.return_value
+        mock_completions = mock_client.chat.completions
+        
         mock_response = unittest.mock.Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "choices": [{
-                "message": {
-                    "content": f"{txn.id}|Food|0.99|"
-                }
-            }]
-        }
-        mock_post.return_value = mock_response
-
+        mock_message = unittest.mock.Mock()
+        mock_message.content = f"{txn.id}|Food|0.99|"
+        mock_choice = unittest.mock.Mock()
+        mock_choice.message = mock_message
+        mock_response.choices = [mock_choice]
+        
+        mock_completions.create.return_value = mock_response
 
         # Run categorization
         service = AICategorizationService()
         result = service.process_user_transactions(self.user_a)
 
-        # Verify mock post called
-        mock_post.assert_called_once()
+        # Verify mock completions API called
+        mock_completions.create.assert_called_once()
         self.assertEqual(result.total_categorized, 1)
 
         # Verify transaction categorization
         txn.refresh_from_db()
         self.assertEqual(txn.category, self.cat_food_a)
         self.assertEqual(txn.ai_confidence, 0.99)
+
+    @patch('pages.ai_engine.OpenAI')
+    def test_tc_29_deepseek_classifier_logic(self, mock_openai_class):
+        """TC-29: Verify that AICategorizationService routes classification to DeepSeek when selected."""
+        import unittest
+        # Setup provider as deepseek
+        profile = self.user_a.profile
+        profile.ai_provider = 'deepseek'
+        profile.deepseek_api_key = 'fake-deepseek-key'
+        profile.save()
+
+        # Create an uncategorized transaction
+        txn = Transaction.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 2, 1),
+            description="DeepSeek Food Purchase",
+            amount=Decimal("-450")
+        )
+
+        # Mock OpenAI (DeepSeek) API successful response
+        mock_client = mock_openai_class.return_value
+        mock_completions = mock_client.chat.completions
+        
+        mock_response = unittest.mock.Mock()
+        mock_message = unittest.mock.Mock()
+        mock_message.content = f"{txn.id}|Food|0.99|"
+        mock_choice = unittest.mock.Mock()
+        mock_choice.message = mock_message
+        mock_response.choices = [mock_choice]
+        
+        mock_completions.create.return_value = mock_response
+
+        # Run categorization
+        service = AICategorizationService()
+        result = service.process_user_transactions(self.user_a)
+
+        # Verify mock completions API called
+        mock_completions.create.assert_called_once()
+        self.assertEqual(result.total_categorized, 1)
+
+        # Verify transaction categorization
+        txn.refresh_from_db()
+        self.assertEqual(txn.category, self.cat_food_a)
+        self.assertEqual(txn.ai_confidence, 0.99)
+
+

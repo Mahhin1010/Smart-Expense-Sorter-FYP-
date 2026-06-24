@@ -415,6 +415,18 @@ class AISortingView(LoginRequiredMixin, View):
         # Pass categories for the inline dropdowns
         user_categories = Category.objects.filter(user=request.user).order_by('name')
 
+        from accounts.models import UserProfile
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        provider_display = profile.get_ai_provider_display()
+        if profile.ai_provider == 'gemini':
+            model_display = profile.gemini_model or 'gemini-2.0-flash'
+        elif profile.ai_provider == 'openai':
+            model_display = profile.openai_model or 'gpt-4.1-nano'
+        elif profile.ai_provider == 'deepseek':
+            model_display = profile.deepseek_model or 'deepseek-chat'
+        else:
+            model_display = 'unknown'
+
         context = {
             'uncategorized_count': uncategorized_count,
             'total_count': total_count,
@@ -423,8 +435,12 @@ class AISortingView(LoginRequiredMixin, View):
             'recent_ai_results': recent_ai_results,
             'user_categories': user_categories,
             'processing_result': request.session.pop('ai_processing_result', None),
+            'provider_display': provider_display,
+            'model_display': model_display,
+            'profile': profile,
         }
         return render(request, self.template_name, context)
+
 
     def post(self, request):
         """Trigger AI classification for all uncategorized transactions."""
@@ -463,12 +479,30 @@ class AISortingView(LoginRequiredMixin, View):
                 'errors': result.errors[:5],
             }
 
+            # Get AI provider display info for user notification
+            from accounts.models import UserProfile
+            try:
+                profile = request.user.profile
+                provider_display = profile.get_ai_provider_display()
+                if profile.ai_provider == 'gemini':
+                    model_display = profile.gemini_model or 'gemini-2.0-flash'
+                elif profile.ai_provider == 'openai':
+                    model_display = profile.openai_model or 'gpt-4.1-nano'
+                elif profile.ai_provider == 'deepseek':
+                    model_display = profile.deepseek_model or 'deepseek-chat'
+                else:
+                    model_display = 'unknown'
+            except Exception:
+                provider_display = "Google Gemini AI"
+                model_display = "gemini-2.0-flash"
+
             if result.total_categorized > 0:
                 messages.success(
                     request,
                     f"AI successfully categorized {result.total_categorized} "
-                    f"out of {result.total_processed} transactions!"
+                    f"out of {result.total_processed} transactions using {provider_display} ({model_display})!"
                 )
+
             if result.total_low_confidence > 0:
                 messages.warning(
                     request,

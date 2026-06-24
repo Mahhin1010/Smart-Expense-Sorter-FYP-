@@ -7,15 +7,19 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     gemini_api_key = models.CharField(max_length=255, blank=True, null=True)
     openai_api_key = models.CharField(max_length=255, blank=True, null=True)
+    deepseek_api_key = models.CharField(max_length=255, blank=True, null=True)
     
     PROVIDER_CHOICES = [
         ('gemini', 'Google Gemini AI'),
         ('openai', 'OpenAI'),
+        ('deepseek', 'DeepSeek AI'),
     ]
     ai_provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='gemini')
     
-    gemini_model = models.CharField(max_length=50, default='gemini-1.5-flash')
-    openai_model = models.CharField(max_length=50, default='gpt-4o-mini')
+    gemini_model = models.CharField(max_length=50, default='gemini-2.0-flash')
+    openai_model = models.CharField(max_length=50, default='gpt-4.1-nano')
+    deepseek_model = models.CharField(max_length=50, default='deepseek-chat')
+
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
