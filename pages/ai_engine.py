@@ -99,32 +99,21 @@ class TransactionBatcher:
     @staticmethod
     def prepare_batch_payload(batch):
         """
-        Convert a batch of Transaction model instances into the dictionary
-        format expected by the Gemini prompt.
-
-        Uses every available signal column for maximum classification accuracy:
-          - description (Raw_Description from CSV)
-          - merchant_name (strongest signal — e.g. "Carrefour" → Groceries)
-          - transaction_type (e.g. "Bill Payment" → likely Utilities)
-          - amount (contextual — ₹50k at Al-Fatah → Groceries, not Dining)
-          - notes/comments (user-provided context — "rent", "monthly bill")
+        Convert a batch of Transaction model instances into a compact pipe-separated string
+        to minimize token footprint and cost.
+        Format: ID|Description|Merchant|Type|Amount|Comments
         """
-        payload = []
+        lines = []
         for txn in batch:
-            entry = {
-                'id': txn.id,
-                'description': txn.description or '',
-                'amount': str(txn.amount),
-            }
-            # Include optional fields only if they contain data
-            if txn.merchant_name:
-                entry['merchant'] = txn.merchant_name
-            if txn.transaction_type:
-                entry['type'] = txn.transaction_type
-            if txn.notes:
-                entry['comments'] = txn.notes
-            payload.append(entry)
-        return payload
+            txn_id = txn.id
+            desc = (txn.description or '').replace('|', ' ').replace('\n', ' ').strip()
+            amount = str(txn.amount)
+            merchant = (txn.merchant_name or '').replace('|', ' ').replace('\n', ' ').strip()
+            txn_type = (txn.transaction_type or '').replace('|', ' ').replace('\n', ' ').strip()
+            comments = (txn.notes or '').replace('|', ' ').replace('\n', ' ').strip()
+            
+            lines.append(f"{txn_id}|{desc}|{merchant}|{txn_type}|{amount}|{comments}")
+        return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -137,41 +126,34 @@ class GeminiClassifier:
 
     Responsibilities:
       - Build the system prompt with the user's category taxonomy.
-      - Send structured transaction data and receive JSON classifications.
-      - Enforce strict JSON-only output contract.
+      - Send structured transaction data and receive classifications.
       - Implement timeout and retry logic.
 
-    Model: gemini-2.0-flash (optimized for speed + cost at scale).
+    Model: gemini-1.5-flash (optimized for speed + cost at scale).
     """
 
-    MODEL_NAME = 'gemini-2.0-flash'
+    MODEL_NAME = 'gemini-1.5-flash'
     TIMEOUT_SECONDS = 30
 
-    SYSTEM_PROMPT_TEMPLATE = """You are a financial transaction classifier for Pakistani bank statements and digital wallet exports.
-
-TASK: Classify each transaction into ONE category from the user's list below.
+    SYSTEM_PROMPT_TEMPLATE = """You are a financial transaction classifier for Pakistani bank statements.
+Classify each transaction into ONE category from the VALID CATEGORIES list.
 
 RULES:
-1. You MUST only use category names from the VALID CATEGORIES list for the `category` field.
-2. Use ALL available fields (merchant, description, type, amount, comments) to make your decision.
-3. Merchant name is usually the strongest signal. Example: "Carrefour" → Groceries, "Uber" → Transport.
-4. Transaction type is a secondary signal. "Bill Payment" → likely Utilities. "Wallet Transfer" → likely Transfers.
-5. Comments/notes from the user override other signals. If comments say "rent", classify as the closest rent-related category.
-6. If the transaction DOES NOT fit any valid category:
-   - Assign "Uncategorized" to the `category` field.
+1. You MUST only use category names from the VALID CATEGORIES list.
+2. If the transaction DOES NOT fit any valid category:
+   - Assign "Uncategorized" to Category.
    - Set confidence below 0.5.
-   - Provide a generic 1-2 word recommendation in the `suggested_category` field (e.g., "Transport", "Food").
-7. If it DOES fit a valid category, leave `suggested_category` as null or empty string.
-8. Return ONLY a valid JSON array. No markdown fences, no explanation, no extra text.
+   - Provide a generic 1-2 word recommendation in SuggestedCategory (e.g., "Transport", "Food").
+3. If it DOES fit a valid category, leave SuggestedCategory empty.
+4. Output format: Respond ONLY with a pipe-separated (|) text block. One line per transaction, matching the exact format:
+   ID|Category|Confidence|SuggestedCategory
+   No headers, no markdown fences, no extra text.
 
 VALID CATEGORIES:
 {categories}
 
-TRANSACTIONS:
-{transactions}
-
-RESPOND WITH ONLY A JSON ARRAY:
-[{{"id": <int>, "category": "<string>", "confidence": <float 0.0-1.0>, "suggested_category": "<string or null>"}}]"""
+TRANSACTIONS (Format: ID|Description|Merchant|Type|Amount|Comments):
+{transactions}"""
 
     def __init__(self):
         """Initialize the Gemini client."""
@@ -267,17 +249,43 @@ RESPOND WITH ONLY A JSON ARRAY:
 
     def _parse_response(self, response_text: str) -> list[dict]:
         """
-        Parse Gemini's raw text output into a structured list.
-        Handles common LLM quirks: markdown fences, trailing commas, etc.
+        Parse the compact pipe-separated response text into a list of dictionaries.
+        Format expected: ID|Category|Confidence|SuggestedCategory
         """
+        results = []
         text = response_text.strip()
 
-        # Strip markdown code fences if the LLM wraps output
+        # Strip markdown code blocks if the LLM wraps it
         if text.startswith('```'):
             lines = text.split('\n')
-            text = '\n'.join(lines[1:-1]).strip()
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            text = '\n'.join(lines).strip()
 
-        return json.loads(text)
+        for line in text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) >= 3:
+                try:
+                    txn_id = int(parts[0])
+                    category = parts[1]
+                    confidence = float(parts[2])
+                    suggested = parts[3] if len(parts) > 3 else ''
+                    
+                    results.append({
+                        "id": txn_id,
+                        "category": category,
+                        "confidence": confidence,
+                        "suggested_category": suggested if suggested and suggested.lower() != 'null' else None
+                    })
+                except ValueError as e:
+                    logger.warning(f"Failed to parse line '{line}': {e}")
+        return results
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +298,7 @@ class OpenAIClassifier:
     Supports custom user keys and selected models.
     """
 
-    def classify_batch(self, batch_payload: list, category_names: list, user) -> list[dict]:
+    def classify_batch(self, batch_payload: str, category_names: list, user) -> list[dict]:
         profile = user.profile
         api_key = profile.openai_api_key
         if not api_key:
@@ -301,7 +309,7 @@ class OpenAIClassifier:
         # Build prompt using same template
         prompt = GeminiClassifier.SYSTEM_PROMPT_TEMPLATE.format(
             categories=json.dumps(category_names),
-            transactions=json.dumps(batch_payload, indent=2)
+            transactions=batch_payload
         )
 
         headers = {
@@ -311,8 +319,7 @@ class OpenAIClassifier:
         payload = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"}
+            "temperature": 0.1
         }
 
         last_error = None
@@ -336,13 +343,7 @@ class OpenAIClassifier:
                     response_json = response.json()
                     content = response_json["choices"][0]["message"]["content"]
                     
-                    data = json.loads(content)
-                    if isinstance(data, dict):
-                        # Find the first array value inside the dict (OpenAI format returns object wrapper)
-                        for val in data.values():
-                            if isinstance(val, list):
-                                return val
-                    return data
+                    return GeminiClassifier()._parse_response(content)
                 elif response.status_code == 429:
                     last_error = f"OpenAI Rate Limit (429): {response.text}"
                     logger.warning(f"OpenAI 429 Rate Limit (attempt {attempt + 1}): {response.text}")
@@ -363,6 +364,7 @@ class OpenAIClassifier:
         raise AIServiceError(
             f"AI Sorting failed after {retries + 1} attempts. Last error: {last_error}"
         )
+
 
 
 # ---------------------------------------------------------------------------

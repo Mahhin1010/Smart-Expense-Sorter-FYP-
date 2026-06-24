@@ -468,13 +468,12 @@ class PagesSystemTests(TestCase):
         mock_response.json.return_value = {
             "choices": [{
                 "message": {
-                    "content": json.dumps([
-                        {"id": txn.id, "category": "Food", "confidence": 0.99, "suggested_category": None}
-                    ])
+                    "content": f"{txn.id}|Food|0.99|"
                 }
             }]
         }
         mock_post.return_value = mock_response
+
 
         # Run categorization
         service = AICategorizationService()

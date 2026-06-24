@@ -14,7 +14,7 @@ class UserProfile(models.Model):
     ]
     ai_provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='gemini')
     
-    gemini_model = models.CharField(max_length=50, default='gemini-2.0-flash')
+    gemini_model = models.CharField(max_length=50, default='gemini-1.5-flash')
     openai_model = models.CharField(max_length=50, default='gpt-4o-mini')
 
     def __str__(self):
