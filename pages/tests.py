@@ -409,3 +409,82 @@ class PagesSystemTests(TestCase):
         # Confirm User B's transaction remains unchanged
         txn_b.refresh_from_db()
         self.assertIsNone(txn_b.category)
+
+    def test_tc_26_user_profile_signals(self):
+        """TC-26: Verify that a UserProfile is automatically created when a new user is registered."""
+        new_user = User.objects.create_user(username="newuser", password="NewPassword123!")
+        self.assertTrue(hasattr(new_user, 'profile'))
+        self.assertEqual(new_user.profile.ai_provider, 'gemini')
+
+    def test_tc_27_settings_save_view(self):
+        """TC-27: Verify that the UserSettingsView successfully saves custom API keys and provider preferences."""
+        self.client.login(username="usera", password="PasswordA123!")
+        url = reverse('user_settings')
+        
+        # Verify initial GET is successful
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        # Post updated settings
+        data = {
+            'ai_provider': 'openai',
+            'gemini_model': 'gemini-1.5-flash',
+            'gemini_api_key': 'test-gemini-key',
+            'openai_model': 'gpt-4o-mini',
+            'openai_api_key': 'test-openai-key'
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify settings saved
+        self.user_a.profile.refresh_from_db()
+        self.assertEqual(self.user_a.profile.ai_provider, 'openai')
+        self.assertEqual(self.user_a.profile.gemini_model, 'gemini-1.5-flash')
+        self.assertEqual(self.user_a.profile.gemini_api_key, 'test-gemini-key')
+        self.assertEqual(self.user_a.profile.openai_model, 'gpt-4o-mini')
+        self.assertEqual(self.user_a.profile.openai_api_key, 'test-openai-key')
+
+    @patch('pages.ai_engine.requests.post')
+    def test_tc_28_openai_classifier_logic(self, mock_post):
+        """TC-28: Verify that AICategorizationService routes classification to OpenAI when selected."""
+        import unittest
+        # Setup provider as openai
+        profile = self.user_a.profile
+        profile.ai_provider = 'openai'
+        profile.openai_api_key = 'fake-openai-key'
+        profile.save()
+
+        # Create an uncategorized transaction
+        txn = Transaction.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 2, 1),
+            description="OpenAI Food Purchase",
+            amount=Decimal("-450")
+        )
+
+        # Mock OpenAI API successful response
+        mock_response = unittest.mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "content": json.dumps([
+                        {"id": txn.id, "category": "Food", "confidence": 0.99, "suggested_category": None}
+                    ])
+                }
+            }]
+        }
+        mock_post.return_value = mock_response
+
+        # Run categorization
+        service = AICategorizationService()
+        result = service.process_user_transactions(self.user_a)
+
+        # Verify mock post called
+        mock_post.assert_called_once()
+        self.assertEqual(result.total_categorized, 1)
+
+        # Verify transaction categorization
+        txn.refresh_from_db()
+        self.assertEqual(txn.category, self.cat_food_a)
+        self.assertEqual(txn.ai_confidence, 0.99)

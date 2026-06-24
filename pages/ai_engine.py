@@ -72,7 +72,7 @@ class TransactionBatcher:
     task queue. For the FYP demo, synchronous processing is acceptable.
     """
 
-    BATCH_SIZE = 25
+    BATCH_SIZE = 100
 
     @staticmethod
     def get_uncategorized(user):
@@ -139,15 +139,13 @@ class GeminiClassifier:
       - Build the system prompt with the user's category taxonomy.
       - Send structured transaction data and receive JSON classifications.
       - Enforce strict JSON-only output contract.
-      - Implement timeout and retry logic per SYSTEM_CONTEXT.md §4.1.
+      - Implement timeout and retry logic.
 
     Model: gemini-2.0-flash (optimized for speed + cost at scale).
     """
 
-    MODEL_NAME = 'gemini-flash-latest'
-    MAX_RETRIES = 1
-    TIMEOUT_SECONDS = 30  # Per SYSTEM_CONTEXT.md: fail after 10s, but we
-                          # allow 30s for larger batches at scale.
+    MODEL_NAME = 'gemini-2.0-flash'
+    TIMEOUT_SECONDS = 30
 
     SYSTEM_PROMPT_TEMPLATE = """You are a financial transaction classifier for Pakistani bank statements and digital wallet exports.
 
@@ -176,40 +174,41 @@ RESPOND WITH ONLY A JSON ARRAY:
 [{{"id": <int>, "category": "<string>", "confidence": <float 0.0-1.0>, "suggested_category": "<string or null>"}}]"""
 
     def __init__(self):
-        """Initialize the Gemini client using the API key from settings."""
-        self._model = None
+        """Initialize the Gemini client."""
+        pass
 
-    def _get_model(self):
-        """Lazy-initialize the Gemini model (avoids import-time side effects)."""
-        if self._model is None:
-            import google.generativeai as genai
+    def _get_model(self, user=None):
+        """Lazy-initialize the Gemini model with custom or default API key."""
+        api_key = None
+        model_name = self.MODEL_NAME
 
+        if user:
+            try:
+                from accounts.models import UserProfile
+                profile = user.profile
+                api_key = profile.gemini_api_key
+                model_name = profile.gemini_model or self.MODEL_NAME
+            except Exception as e:
+                logger.warning(f"Failed to fetch user profile: {e}")
+
+        if not api_key:
             api_key = getattr(settings, 'GEMINI_API_KEY', None)
-            if not api_key:
-                raise ValueError(
-                    "GEMINI_API_KEY is not configured. "
-                    "Add it to your .env file: GEMINI_API_KEY=your_key_here"
-                )
 
-            genai.configure(api_key=api_key)
-            self._model = genai.GenerativeModel(self.MODEL_NAME)
-        return self._model
+        if not api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is not configured. "
+                "Add it to your .env file or save it in your Settings page."
+            )
 
-    def classify_batch(self, batch_payload: list, category_names: list) -> list[dict]:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        return genai.GenerativeModel(model_name)
+
+    def classify_batch(self, batch_payload: list, category_names: list, user=None) -> list[dict]:
         """
         Send a batch of transactions to Gemini and return parsed results.
-
-        Args:
-            batch_payload: List of dicts with transaction data (from Batcher).
-            category_names: List of the user's category name strings.
-
-        Returns:
-            List of dicts: [{"id": int, "category": str, "confidence": float}]
-
-        Raises:
-            AIServiceError: On timeout, API failure, or unparseable response.
         """
-        model = self._get_model()
+        model = self._get_model(user)
 
         # Build the prompt
         prompt = self.SYSTEM_PROMPT_TEMPLATE.format(
@@ -217,9 +216,12 @@ RESPOND WITH ONLY A JSON ARRAY:
             transactions=json.dumps(batch_payload, indent=2)
         )
 
-        # Attempt classification with retry logic
+        # Attempt classification with retry logic and exponential backoff
         last_error = None
-        for attempt in range(self.MAX_RETRIES + 1):
+        retries = 3
+        backoff_delays = [5, 15, 30]
+
+        for attempt in range(retries + 1):
             try:
                 start_time = time.time()
 
@@ -234,7 +236,7 @@ RESPOND WITH ONLY A JSON ARRAY:
                 elapsed = time.time() - start_time
                 logger.info(
                     f"Gemini API call completed in {elapsed:.2f}s "
-                    f"(attempt {attempt + 1}/{self.MAX_RETRIES + 1})"
+                    f"(attempt {attempt + 1}/{retries + 1})"
                 )
 
                 # Parse the JSON response
@@ -244,15 +246,22 @@ RESPOND WITH ONLY A JSON ARRAY:
                 last_error = f"AI returned invalid JSON: {str(e)}"
                 logger.warning(f"JSON parse failed (attempt {attempt + 1}): {e}")
             except Exception as e:
-                last_error = f"AI service error: {str(e)}"
-                logger.warning(f"API call failed (attempt {attempt + 1}): {e}")
+                err_str = str(e)
+                last_error = f"AI service error: {err_str}"
+                logger.warning(f"API call failed (attempt {attempt + 1}): {err_str}")
+                
+                # If we hit a rate limit, print backoff warning
+                if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "rate" in err_str.lower():
+                    logger.warning("Detected Rate Limit (429) or Quota Exceeded. Applying exponential backoff.")
 
-            # Brief pause before retry
-            if attempt < self.MAX_RETRIES:
-                time.sleep(1)
+            # Exponential backoff pause before retry
+            if attempt < retries:
+                sleep_time = backoff_delays[attempt]
+                logger.info(f"Retrying Gemini call in {sleep_time} seconds...")
+                time.sleep(sleep_time)
 
         raise AIServiceError(
-            f"AI Sorting failed after {self.MAX_RETRIES + 1} attempts. "
+            f"AI Sorting failed after {retries + 1} attempts. "
             f"Last error: {last_error}"
         )
 
@@ -266,10 +275,94 @@ RESPOND WITH ONLY A JSON ARRAY:
         # Strip markdown code fences if the LLM wraps output
         if text.startswith('```'):
             lines = text.split('\n')
-            # Remove first line (```json) and last line (```)
             text = '\n'.join(lines[1:-1]).strip()
 
         return json.loads(text)
+
+
+# ---------------------------------------------------------------------------
+# 3.1. OPENAI CLASSIFIER [NEW]
+# ---------------------------------------------------------------------------
+
+class OpenAIClassifier:
+    """
+    Handles communication with OpenAI's Chat Completions API.
+    Supports custom user keys and selected models.
+    """
+
+    def classify_batch(self, batch_payload: list, category_names: list, user) -> list[dict]:
+        profile = user.profile
+        api_key = profile.openai_api_key
+        if not api_key:
+            raise ValueError("OpenAI API key is missing. Please add your key in Settings.")
+
+        model_name = profile.openai_model or "gpt-4o-mini"
+
+        # Build prompt using same template
+        prompt = GeminiClassifier.SYSTEM_PROMPT_TEMPLATE.format(
+            categories=json.dumps(category_names),
+            transactions=json.dumps(batch_payload, indent=2)
+        )
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"}
+        }
+
+        last_error = None
+        retries = 3
+        backoff_delays = [5, 15, 30]
+
+        for attempt in range(retries + 1):
+            try:
+                start_time = time.time()
+                response = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=30
+                )
+                
+                elapsed = time.time() - start_time
+                logger.info(f"OpenAI API call completed in {elapsed:.2f}s (attempt {attempt + 1}/{retries + 1})")
+
+                if response.status_code == 200:
+                    response_json = response.json()
+                    content = response_json["choices"][0]["message"]["content"]
+                    
+                    data = json.loads(content)
+                    if isinstance(data, dict):
+                        # Find the first array value inside the dict (OpenAI format returns object wrapper)
+                        for val in data.values():
+                            if isinstance(val, list):
+                                return val
+                    return data
+                elif response.status_code == 429:
+                    last_error = f"OpenAI Rate Limit (429): {response.text}"
+                    logger.warning(f"OpenAI 429 Rate Limit (attempt {attempt + 1}): {response.text}")
+                else:
+                    last_error = f"OpenAI Error {response.status_code}: {response.text}"
+                    logger.warning(f"OpenAI error (attempt {attempt + 1}): {response.text}")
+
+            except Exception as e:
+                last_error = f"OpenAI connection error: {str(e)}"
+                logger.warning(f"OpenAI call failed (attempt {attempt + 1}): {e}")
+
+            # Backoff before retry
+            if attempt < retries:
+                sleep_time = backoff_delays[attempt]
+                logger.info(f"Retrying OpenAI call in {sleep_time} seconds...")
+                time.sleep(sleep_time)
+
+        raise AIServiceError(
+            f"AI Sorting failed after {retries + 1} attempts. Last error: {last_error}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -280,26 +373,12 @@ class ResponseValidator:
     """
     Validates AI classifications against the user's actual category list.
     Ensures no phantom categories enter the database.
-
-    Per SYSTEM_CONTEXT.md §4.2:
-      - If AI suggests a category not in the DB → assign "Uncategorized".
-      - If confidence < threshold → assign "Uncategorized".
     """
 
     CONFIDENCE_THRESHOLD = 0.5
 
     @classmethod
     def validate(cls, ai_results: list[dict], valid_category_names: set) -> list[ClassificationResult]:
-        """
-        Validate each AI result against the user's category list.
-
-        Args:
-            ai_results: Raw parsed JSON from Gemini.
-            valid_category_names: Set of category name strings from the DB.
-
-        Returns:
-            List of ClassificationResult dataclass instances.
-        """
         validated = []
         for item in ai_results:
             txn_id = item.get('id')
@@ -309,7 +388,6 @@ class ResponseValidator:
             if not suggested or suggested.lower() == 'null':
                 suggested = None
 
-            # Validate the category exists in the user's list
             if category not in valid_category_names:
                 validated.append(ClassificationResult(
                     transaction_id=txn_id,
@@ -317,7 +395,7 @@ class ResponseValidator:
                     confidence=confidence,
                     is_valid=False,
                     error=f"AI suggested '{category}' which is not in user's categories",
-                    suggested_category=suggested or category # If it hallucinated a category, treat it as a suggestion
+                    suggested_category=suggested or category
                 ))
             elif confidence < cls.CONFIDENCE_THRESHOLD or category == 'Uncategorized':
                 validated.append(ClassificationResult(
@@ -342,19 +420,11 @@ class ResponseValidator:
 # 5. ORCHESTRATION SERVICE (FACADE)
 # ---------------------------------------------------------------------------
 
+import requests
+
 class AICategorizationService:
     """
     Facade that orchestrates the full classification pipeline.
-
-    Workflow (matches sequence diagram seq_ai_process.png):
-      1. Fetch user's categories from DB.
-      2. Fetch uncategorized transactions.
-      3. Batch transactions into groups of 25.
-      4. For each batch: call Gemini → validate → collect results.
-      5. Bulk-update the DB with new category assignments.
-      6. Return a BatchResult summary.
-
-    This is the ONLY class that views.py should interact with.
     """
 
     def __init__(self):
@@ -362,16 +432,8 @@ class AICategorizationService:
         self.classifier = GeminiClassifier()
 
     def process_user_transactions(self, user) -> BatchResult:
-        """
-        Main entry point. Classifies all uncategorized transactions for a user.
-
-        Args:
-            user: Django User model instance.
-
-        Returns:
-            BatchResult with counts and per-transaction results.
-        """
         from .models import Category, Transaction
+        from accounts.models import UserProfile
 
         result = BatchResult()
 
@@ -391,7 +453,7 @@ class AICategorizationService:
         )
         category_name_set = set(category_names) | {'Uncategorized'}
 
-        # Build a name→object lookup for bulk_update
+        # Build lookup dict
         category_map = {c.name: c for c in Category.objects.filter(user=user)}
 
         # Step 2: Get uncategorized transactions
@@ -404,17 +466,26 @@ class AICategorizationService:
 
         result.total_processed = total_count
 
+        # Get AI configuration
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        ai_provider = profile.ai_provider
+
         # Step 3-4: Batch and classify
         transactions_to_update = []
+        batches = list(self.batcher.create_batches(uncategorized_qs))
+        num_batches = len(batches)
 
-        for batch in self.batcher.create_batches(uncategorized_qs):
+        for idx, batch in enumerate(batches):
             payload = self.batcher.prepare_batch_payload(batch)
 
             try:
-                ai_results = self.classifier.classify_batch(payload, category_names)
-                validated = ResponseValidator.validate(ai_results, category_name_set)
+                if ai_provider == 'openai':
+                    openai_classifier = OpenAIClassifier()
+                    ai_results = openai_classifier.classify_batch(payload, category_names, user)
+                else:
+                    ai_results = self.classifier.classify_batch(payload, category_names, user)
 
-                # Build a lookup of transaction_id → Transaction object
+                validated = ResponseValidator.validate(ai_results, category_name_set)
                 batch_map = {txn.id: txn for txn in batch}
 
                 for classification in validated:
@@ -444,13 +515,17 @@ class AICategorizationService:
                 result.total_errors += len(batch)
                 result.errors.append(str(e))
 
-        # Step 5: Bulk update — critical for performance at scale
-        # Per SYSTEM_CONTEXT.md §UC-AI-03: DO NOT use for-loop with .save()
+            # Add throttling delay between sequential batches
+            if idx < num_batches - 1:
+                logger.info("Throttling request. Sleeping for 3 seconds...")
+                time.sleep(3)
+
+        # Step 5: Bulk update
         if transactions_to_update:
             Transaction.objects.bulk_update(
                 transactions_to_update,
                 fields=['category', 'ai_confidence', 'is_ai_categorized', 'ai_suggested_category'],
-                batch_size=100  # Django's internal batch size for the UPDATE query
+                batch_size=100
             )
             logger.info(
                 f"Bulk-updated {len(transactions_to_update)} transactions for user {user.username}"
