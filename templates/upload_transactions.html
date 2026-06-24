@@ -61,18 +61,23 @@
                             <th>Description</th>
                             <th>Amount</th>
                             <th>Notes</th>
+                            <th style="width: 60px; text-align: center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for tx in transactions %}
-                        <tr>
+                        <tr id="tx-row-{{ tx.id }}">
                             <td>{{ tx.date|date:"M d, Y" }}</td>
                             <td>{{ tx.description|truncatechars:40 }}</td>
                             <td
                                 style="text-align: right; font-weight: 600; {% if tx.amount >= 0 %}color: var(--success-text);{% else %}color: var(--danger-text);{% endif %}">
                                 ${{ tx.amount|floatformat:2 }}
                             </td>
-                            <td>{{ tx.notes|default:"-"|truncatechars:30 }}
+                            <td>{{ tx.notes|default:"-"|truncatechars:30 }}</td>
+                            <td style="text-align: center;">
+                                <button class="btn-delete-txn" onclick="deleteTransaction({{ tx.id }})" title="Delete Transaction">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -99,18 +104,144 @@
         {% else %}
         <!-- ============ UPLOAD VIEW ============ -->
 
+        <!-- Local Styles for Multi-option Import Cards -->
+        <style>
+            .import-option-card {
+                background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+                border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+                border-radius: 16px;
+                padding: 24px;
+                height: 100%;
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+            
+            .import-option-card:hover {
+                transform: translateY(-4px);
+                background: var(--glass-bg-hover, rgba(255, 255, 255, 0.06));
+                border-color: rgba(255, 255, 255, 0.2);
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+            }
+            
+            .import-option-card.active {
+                background: rgba(99, 102, 241, 0.08);
+                border-color: #6366f1;
+                box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+            }
+            
+            .import-option-card.active h4 {
+                color: #818cf8;
+            }
+            
+            .import-option-card h4 {
+                margin: 0 0 8px 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                transition: color 0.3s ease;
+            }
+            
+            .import-option-card p {
+                margin: 0;
+                font-size: 0.85rem;
+                color: var(--text-muted, #94a3b8);
+                line-height: 1.45;
+            }
+            
+            .import-option-card.disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            
+            .import-option-card.disabled:hover {
+                transform: none;
+                box-shadow: none;
+                background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+                border-color: var(--glass-border, rgba(255, 255, 255, 0.08));
+            }
+            
+            .card-badge {
+                position: absolute;
+                top: 12px;
+                right: -25px;
+                transform: rotate(45deg);
+                padding: 2px 25px;
+                font-size: 0.6rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .logo-wrapper {
+                width: 48px;
+                height: 48px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.05);
+            }
+        </style>
+
+        <!-- Option Selection Cards Grid -->
+        <div class="row g-3" style="margin-bottom: 30px;">
+            <!-- Option 1: NayaPay CSV -->
+            <div class="col-md-4">
+                <div class="import-option-card active" id="optionNayaPay" onclick="selectImportType('nayapay')">
+                    <div class="card-badge" style="background: #e11d48; color: white;">Best Match</div>
+                    <div class="logo-wrapper" style="background: white; border-color: rgba(0,0,0,0.1);">
+                        <img src="{% static 'images/nayapay-svgrepo-com.svg' %}" alt="NayaPay Logo" style="height: 28px; width: 28px; object-fit: contain;">
+                    </div>
+                    <h4>NayaPay Statement</h4>
+                    <p>Import statement CSVs directly exported from your NayaPay wallet app.</p>
+                </div>
+            </div>
+
+            <!-- Option 2: Generic Template -->
+            <div class="col-md-4">
+                <div class="import-option-card" id="optionTemplate" onclick="selectImportType('template')">
+                    <div class="logo-wrapper" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                        <i class="fas fa-file-csv" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <h4>Template Import</h4>
+                    <p>Use our standard formatted CSV structure (Date, Description, Amount).</p>
+                </div>
+            </div>
+
+            <!-- Option 3: Direct Bank Sync -->
+            <div class="col-md-4">
+                <div class="import-option-card disabled" id="optionSync" onclick="selectImportType('sync')">
+                    <div class="card-badge" style="background: rgba(255,255,255,0.08); color: #94a3b8;">Prep Mode</div>
+                    <div class="logo-wrapper" style="background: rgba(156, 163, 175, 0.1); color: #9ca3af;">
+                        <i class="fas fa-bank" style="font-size: 1.3rem;"></i>
+                    </div>
+                    <h4>Bank Integration</h4>
+                    <p>Securely sync transactions directly from banking servers (OAuth API).</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Upload Card -->
         <div class="card-glass">
             <form method="POST" enctype="multipart/form-data" id="uploadForm">
                 {% csrf_token %}
+                
+                <!-- Hidden Field to pass Import Type -->
+                <input type="hidden" name="import_type" id="importTypeInput" value="nayapay">
 
                 <div class="upload-zone" id="uploadZone">
                     <i class="fas fa-cloud-upload-alt"></i>
-                    <h3>Drag & Drop your CSV file here</h3>
+                    <h3 id="uploadZoneTitle">Drag & Drop your NayaPay CSV statement(s) here</h3>
                     <p>or click to browse from your device</p>
 
                     <div class="file-input-wrapper">
-                        <input type="file" name="file" id="csvFileInput" accept=".csv">
+                        <input type="file" name="file" id="csvFileInput" accept=".csv" multiple>
                         <button type="button" class="btn-browse" id="browseBtn">
                             <i class="fas fa-folder-open"></i>
                             Browse Files
@@ -144,8 +275,8 @@
                 </div>
             </form>
 
-            <!-- Sample Template Link -->
-            <div style="text-align: center;">
+            <!-- Sample Template Link (Toggled) -->
+            <div style="text-align: center; margin-top: 15px; display: none;" id="templateDownloadLink">
                 <a href="{% static 'files/sample_transactions.csv' %}" class="sample-link"
                     download="SmartSorter_Sample_Template.csv">
                     <i class="fas fa-download"></i>
@@ -153,17 +284,271 @@
                 </a>
             </div>
 
-            <!-- Requirements Box -->
-            <div class="requirements-box">
-                <h4><i class="fas fa-list-check" style="margin-right: 8px;"></i>CSV Requirements</h4>
+            <!-- NayaPay Requirements Box -->
+            <div class="requirements-box" id="requirementsNayaPay">
+                <h4 style="color: #f43f5e; font-weight: 600;"><i class="fas fa-list-check" style="margin-right: 8px;"></i>NayaPay CSV Statement Details</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">
+                    Our NayaPay normalizer automatically reads statement exports, skips introductory metadata rows, and processes Pakistan rupee indicators.
+                </p>
+                <ul style="padding-left: 0; list-style: none;">
+                    <li style="margin-bottom: 8px;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> <strong>Date & Time</strong> - Mapped automatically</li>
+                    <li style="margin-bottom: 8px;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> <strong>Narration / Remarks</strong> - Mapped to description</li>
+                    <li style="margin-bottom: 8px;"><i class="fas fa-check" style="color: #10b981; margin-right: 8px;"></i> <strong>Amount(PKR)</strong> - Automatically parsed and parsed to Decimal</li>
+                    <li style="margin-top: 12px; font-size: 0.8rem; color: #f43f5e;"><i class="fas fa-info-circle" style="margin-right: 6px;"></i> <strong>No Formatting Required:</strong> Upload the CSV exactly as exported from your NayaPay application.</li>
+                </ul>
+            </div>
+
+            <!-- Template Requirements Box -->
+            <div class="requirements-box" id="requirementsTemplate" style="display: none;">
+                <h4><i class="fas fa-list-check" style="margin-right: 8px;"></i>CSV Template Requirements</h4>
                 <ul>
-                    <li><i class="fas fa-check"></i> <strong>Date</strong> - Transaction date (YYYY-MM-DD or DD/MM/YYYY)
-                    </li>
-                    <li><i class="fas fa-check"></i> <strong>Description</strong> - Transaction description from bank
-                    </li>
+                    <li><i class="fas fa-check"></i> <strong>Date</strong> - Transaction date (YYYY-MM-DD or DD/MM/YYYY)</li>
+                    <li><i class="fas fa-check"></i> <strong>Description</strong> - Transaction description from bank</li>
                     <li><i class="fas fa-check"></i> <strong>Amount</strong> - Transaction amount (numbers only)</li>
                     <li><i class="fas fa-check"></i> <strong>Notes</strong> - Optional notes or memo</li>
                 </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Danger Zone (Bulk Clear) -->
+        {% if has_existing_transactions %}
+        <style>
+            /* Danger Zone Styling */
+            .danger-zone-card {
+                background: rgba(239, 68, 68, 0.02);
+                border: 1px solid rgba(239, 68, 68, 0.15);
+                border-radius: 16px;
+                padding: 24px;
+                margin-top: 40px;
+                text-align: left;
+                box-shadow: 0 4px 20px rgba(239, 68, 68, 0.05);
+            }
+            .danger-zone-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 15px;
+                color: #ef4444;
+            }
+            .danger-zone-header h3 {
+                margin: 0;
+                font-size: 1.2rem;
+                font-weight: 700;
+            }
+            .danger-zone-body {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 20px;
+                flex-wrap: wrap;
+            }
+            .danger-zone-text p {
+                margin: 0;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .btn-danger-custom {
+                background: transparent;
+                color: #ef4444;
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                padding: 10px 20px;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .btn-danger-custom:hover {
+                background: #ef4444;
+                color: white;
+                border-color: #ef4444;
+                box-shadow: 0 0 15px rgba(239, 68, 68, 0.25);
+            }
+
+            /* Custom Delete Button on Rows */
+            .btn-delete-txn {
+                background: transparent;
+                border: none;
+                color: #f43f5e;
+                cursor: pointer;
+                padding: 6px 10px;
+                border-radius: 6px;
+                transition: all 0.2s;
+            }
+            .btn-delete-txn:hover {
+                background: rgba(244, 63, 94, 0.1);
+                color: #e11d48;
+            }
+            .row-fade-out {
+                opacity: 0 !important;
+                transform: scale(0.95);
+                transition: all 0.4s ease-out;
+            }
+
+            /* Modal Styling */
+            .modal-backdrop-custom {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(15, 23, 42, 0.85);
+                backdrop-filter: blur(8px);
+                z-index: 1050;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+            .modal-backdrop-custom.active {
+                display: flex;
+                opacity: 1;
+            }
+            .modal-card-custom {
+                background: #0f172a;
+                border: 1px solid rgba(239, 68, 68, 0.25);
+                border-radius: 20px;
+                max-width: 500px;
+                width: 90%;
+                padding: 30px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(239, 68, 68, 0.15);
+                transform: translateY(20px);
+                transition: transform 0.3s ease;
+            }
+            .modal-backdrop-custom.active .modal-card-custom {
+                transform: translateY(0);
+            }
+            .modal-header-custom {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .modal-icon-danger {
+                width: 45px;
+                height: 45px;
+                background: rgba(239, 68, 68, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #ef4444;
+                font-size: 1.25rem;
+                border: 1px solid rgba(239, 68, 68, 0.2);
+            }
+            .modal-title-custom {
+                font-size: 1.3rem;
+                font-weight: 700;
+                color: #f1f5f9;
+                margin: 0;
+            }
+            .modal-body-custom p {
+                color: #94a3b8;
+                font-size: 0.95rem;
+                line-height: 1.6;
+                margin-bottom: 20px;
+            }
+            .modal-input-confirm {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 10px;
+                width: 100%;
+                padding: 12px 16px;
+                color: #f1f5f9;
+                font-size: 1rem;
+                margin-bottom: 20px;
+                transition: border-color 0.2s;
+                text-align: center;
+                letter-spacing: 2px;
+                font-weight: 600;
+            }
+            .modal-input-confirm:focus {
+                outline: none;
+                border-color: #ef4444;
+                box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+            }
+            .modal-footer-custom {
+                display: flex;
+                gap: 12px;
+            }
+            .btn-confirm-danger {
+                background: #ef4444;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                flex: 1;
+                transition: all 0.2s;
+            }
+            .btn-confirm-danger:hover:not(:disabled) {
+                background: #dc2626;
+                box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            }
+            .btn-confirm-danger:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+            .btn-cancel-custom {
+                background: rgba(255,255,255,0.05);
+                color: #94a3b8;
+                border: 1px solid rgba(255,255,255,0.08);
+                padding: 12px 20px;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                flex: 1;
+                transition: all 0.2s;
+            }
+            .btn-cancel-custom:hover {
+                background: rgba(255,255,255,0.08);
+                color: #f1f5f9;
+            }
+        </style>
+
+        <div class="danger-zone-card">
+            <div class="danger-zone-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Danger Zone</h3>
+            </div>
+            <div class="danger-zone-body">
+                <div class="danger-zone-text">
+                    <p>Permanently delete all imported transactions and start fresh.</p>
+                    <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 5px;">This will erase all classification history and Metabase analytics data.</p>
+                </div>
+                <button type="button" class="btn-danger-custom" onclick="openResetModal()">
+                    <i class="fas fa-trash-alt"></i> Clear All History
+                </button>
+            </div>
+        </div>
+
+        <!-- Double Confirmation Modal -->
+        <div class="modal-backdrop-custom" id="confirmResetModal">
+            <div class="modal-card-custom">
+                <div class="modal-header-custom">
+                    <div class="modal-icon-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 class="modal-title-custom">Start Fresh?</h3>
+                </div>
+                <div class="modal-body-custom">
+                    <p>This action <strong>cannot be undone</strong>. It will permanently erase all transaction history and uploaded file records associated with your account.</p>
+                    <p>Please type <strong>DELETE</strong> in all caps to confirm:</p>
+                    <input type="text" id="confirmDeleteInput" class="modal-input-confirm" placeholder="type DELETE here" autocomplete="off">
+                </div>
+                <div class="modal-footer-custom">
+                    <button class="btn-cancel-custom" onclick="closeResetModal()">Cancel</button>
+                    <form action="{% url 'clear_all_transactions' %}" method="post" style="flex: 1; display: flex; margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" id="btnConfirmReset" class="btn-confirm-danger" disabled>Yes, Delete Everything</button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -172,7 +557,147 @@
 </div>
 
 <script>
+    // Modal Logic for Resetting
+    function openResetModal() {
+        const modal = document.getElementById('confirmResetModal');
+        if (modal) {
+            modal.classList.add('active');
+            const input = document.getElementById('confirmDeleteInput');
+            const submitBtn = document.getElementById('btnConfirmReset');
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 100);
+            }
+            if (submitBtn) submitBtn.disabled = true;
+        }
+    }
+
+    function closeResetModal() {
+        const modal = document.getElementById('confirmResetModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    // CSRF Token Helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Individual Delete Logic
+    function deleteTransaction(transactionId) {
+        if (!confirm("Are you sure you want to delete this transaction?")) {
+            return;
+        }
+
+        const row = document.getElementById('tx-row-' + transactionId);
+        
+        fetch('{% url "api_delete_transaction" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (row) {
+                    row.classList.add('row-fade-out');
+                    setTimeout(() => {
+                        row.remove();
+                        const remainingRows = document.querySelectorAll('tbody tr');
+                        if (remainingRows.length === 0) {
+                            window.location.reload();
+                        }
+                    }, 400);
+                }
+            } else {
+                alert('Error deleting transaction: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('A network error occurred.');
+            console.error('Error:', error);
+        });
+    }
+
+    function selectImportType(type) {
+        if (type === 'sync') {
+            alert("Bank Integration is currently in prep mode!\nDirect API synchronization for mobile digital wallets (SadaPay, NayaPay, JazzCash) is planned for the next system expansion.");
+            return;
+        }
+        
+        // Update active class on cards
+        document.querySelectorAll('.import-option-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        
+        const inputType = document.getElementById('importTypeInput');
+        const uploadZoneTitle = document.getElementById('uploadZoneTitle');
+        const reqNayaPay = document.getElementById('requirementsNayaPay');
+        const reqTemplate = document.getElementById('requirementsTemplate');
+        const downloadLink = document.getElementById('templateDownloadLink');
+        
+        if (type === 'nayapay') {
+            document.getElementById('optionNayaPay').classList.add('active');
+            inputType.value = 'nayapay';
+            uploadZoneTitle.textContent = 'Drag & Drop your NayaPay CSV statement here';
+            reqNayaPay.style.display = 'block';
+            reqTemplate.style.display = 'none';
+            downloadLink.style.display = 'none';
+        } else if (type === 'template') {
+            document.getElementById('optionTemplate').classList.add('active');
+            inputType.value = 'template';
+            uploadZoneTitle.textContent = 'Drag & Drop your generic CSV template here';
+            reqNayaPay.style.display = 'none';
+            reqTemplate.style.display = 'block';
+            downloadLink.style.display = 'block';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        // Double confirmation typing check
+        const deleteInput = document.getElementById('confirmDeleteInput');
+        const confirmBtn = document.getElementById('btnConfirmReset');
+        if (deleteInput && confirmBtn) {
+            deleteInput.addEventListener('input', function() {
+                if (this.value.trim() === 'DELETE') {
+                    confirmBtn.disabled = false;
+                } else {
+                    confirmBtn.disabled = true;
+                }
+            });
+        }
+        
+        // Modal close on escape key or clicking outside the card
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('confirmResetModal');
+            if (e.target === modal) {
+                closeResetModal();
+            }
+        });
+        
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeResetModal();
+            }
+        });
+
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('csvFileInput');
         const browseBtn = document.getElementById('browseBtn');
@@ -184,6 +709,8 @@
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
+
+        if (!uploadForm) return; // In case view is in preview mode
 
         // Browse button click
         browseBtn.addEventListener('click', function (e) {
@@ -214,27 +741,32 @@
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 fileInput.files = files;
-                updateFileDisplay(files[0]);
+                updateFileDisplay(files);
             }
         });
 
         // File input change
         fileInput.addEventListener('change', function () {
             if (this.files.length > 0) {
-                updateFileDisplay(this.files[0]);
+                updateFileDisplay(this.files);
             }
         });
 
         // Clear file
-        clearFile.addEventListener('click', function () {
+        clearFile.addEventListener('click', function (e) {
+            e.stopPropagation();
             fileInput.value = '';
             selectedFile.classList.remove('active');
             submitBtn.disabled = true;
         });
 
         // Update file display
-        function updateFileDisplay(file) {
-            fileName.textContent = file.name;
+        function updateFileDisplay(filesList) {
+            if (filesList.length === 1) {
+                fileName.textContent = filesList[0].name;
+            } else {
+                fileName.textContent = filesList.length + " files selected";
+            }
             selectedFile.classList.add('active');
             submitBtn.disabled = false;
         }

@@ -28,6 +28,18 @@ class DefaultCategory(models.Model):
         return self.name 
 
 
+class UploadedFile(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_files')
+    filename = models.CharField(max_length=255)
+    upload_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Uploaded Files"
+
+    def __str__(self):
+        return f"{self.filename} ({self.upload_date})"
+
+
 class Transaction(models.Model):
     """
     Transaction model for storing uploaded financial transactions.
@@ -47,6 +59,14 @@ class Transaction(models.Model):
         blank=True,
         related_name='transactions',
         help_text="Category assigned by AI or user"
+    )
+    uploaded_file = models.ForeignKey(
+        UploadedFile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions',
+        help_text="File from which this transaction was imported"
     )
     date = models.DateField(help_text="Transaction date")
     description = models.CharField(max_length=255, help_text="Transaction description from bank")
@@ -86,6 +106,20 @@ class Transaction(models.Model):
         null=True,
         blank=True,
         help_text="Category suggested by AI when it falls into Uncategorized"
+    )
+    transaction_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Extracted unique transaction reference ID"
+    )
+    tx_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="SHA-256 hash of core fields to detect duplicates"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     

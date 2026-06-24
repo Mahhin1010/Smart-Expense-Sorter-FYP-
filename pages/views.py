@@ -56,8 +56,10 @@ class ManageCategoriesView(LoginRequiredMixin, View):
         if 'add_category' in request.POST:
             category_name = request.POST.get('category_name', '').strip()
             if category_name:
+                from django.db import transaction
                 try:
-                    Category.objects.create(user=request.user, name=category_name)
+                    with transaction.atomic():
+                        Category.objects.create(user=request.user, name=category_name)
                     messages.success(request, f"Category '{category_name}' added successfully!")
                 except IntegrityError:
                     messages.error(request, f"Category '{category_name}' already exists.")
@@ -75,35 +77,15 @@ class ManageCategoriesView(LoginRequiredMixin, View):
 
 
 # --- 8. Upload Transactions View (UC 3.1) - Class-Based View ---
-class TransactionUploadView(LoginRequiredMixin, FormView):
+class TransactionUploadView(LoginRequiredMixin, View):
     """
-    Handles CSV file upload for bulk transaction import.
-    Follows OOP best practices using Django's FormView.
+    Handles CSV file upload for bulk transaction import supporting both
+    standard CSV template and NayaPay exported statements.
     """
     template_name = 'upload_transactions.html'
-    form_class = TransactionUploadForm
-    
-    # Required CSV headers (case-insensitive matching)
-    REQUIRED_HEADERS = ['date', 'description', 'amount']
-    OPTIONAL_HEADERS = ['notes', 'merchant_name', 'transaction_type', 'comments',
-                        'raw_description', 'merchant', 'type']
 
-    # Alias map: common CSV column names → our model field names
-    HEADER_ALIASES = {
-        'raw_description': 'description',
-        'merchant_name': 'merchant_name',
-        'merchant': 'merchant_name',
-        'transaction_type': 'transaction_type',
-        'type': 'transaction_type',
-        'comments': 'notes',
-        'notes': 'notes',
-        'memo': 'notes',
-    }
-    
-    def get_context_data(self, **kwargs):
-        """Add stats and transactions to context."""
-        context = super().get_context_data(**kwargs)
-        context['stats'] = self.request.session.pop('upload_stats', {
+    def get(self, request):
+        stats = request.session.pop('upload_stats', {
             'total_rows': 0,
             'successful': 0,
             'errors': [],
@@ -111,184 +93,257 @@ class TransactionUploadView(LoginRequiredMixin, FormView):
         })
         
         # Get recently imported transactions for preview
-        transaction_ids = self.request.session.pop('imported_transaction_ids', [])
+        transaction_ids = request.session.pop('imported_transaction_ids', [])
         if transaction_ids:
-            context['transactions'] = Transaction.objects.filter(
+            transactions = Transaction.objects.filter(
                 id__in=transaction_ids,
-                user=self.request.user
+                user=request.user
             ).order_by('-date')[:50]  # Limit to 50 for display
         else:
-            context['transactions'] = None
+            transactions = None
+
+        has_existing_transactions = Transaction.objects.filter(user=request.user).exists()
             
-        return context
-    
-    def form_valid(self, form):
-        """Process the uploaded CSV file."""
+        context = {
+            'stats': stats,
+            'transactions': transactions,
+            'has_existing_transactions': has_existing_transactions,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        import_type = request.POST.get('import_type', 'template')
         
-        stats = {
+        files = request.FILES.getlist('file')
+        if not files or len(files) == 0:
+            messages.error(request, "No files selected for import.")
+            return redirect('upload_transactions')
+
+        import os
+        import hashlib
+        from django.conf import settings
+        from .models import UploadedFile
+        from .parser import process_nayapay_csv
+
+        # Initialize accumulated stats
+        accumulated_stats = {
             'total_rows': 0,
             'successful': 0,
+            'duplicates': 0,
             'errors': [],
-            'processed': False
+            'processed': True
         }
+        imported_transaction_ids = []
+
+        if import_type == 'nayapay':
+            temp_dir = os.path.join(settings.BASE_DIR, 'media', 'temp_uploads')
+            os.makedirs(temp_dir, exist_ok=True)
+
+            for file_obj in files:
+                if not file_obj.name.endswith('.csv'):
+                    messages.error(request, f"Skipped '{file_obj.name}': Unsupported file format. Please upload a .csv file.")
+                    continue
+
+                uploaded_file_record = UploadedFile.objects.create(
+                    user=request.user,
+                    filename=file_obj.name
+                )
+                temp_file_path = os.path.join(temp_dir, f"user_{request.user.id}_{file_obj.name}")
+
+                try:
+                    with open(temp_file_path, 'wb+') as destination:
+                        for chunk in file_obj.chunks():
+                            destination.write(chunk)
+
+                    records_created, skipped_duplicates = process_nayapay_csv(temp_file_path, request.user, uploaded_file_record)
+                    
+                    accumulated_stats['successful'] += records_created
+                    accumulated_stats['duplicates'] += skipped_duplicates
+                    accumulated_stats['total_rows'] += (records_created + skipped_duplicates)
+
+                    # Fetch created transaction IDs for preview
+                    recent_txs = Transaction.objects.filter(
+                        user=request.user, 
+                        uploaded_file=uploaded_file_record
+                    ).values_list('id', flat=True)
+                    imported_transaction_ids.extend(list(recent_txs))
+
+                    if records_created == 0 and skipped_duplicates > 0:
+                        uploaded_file_record.delete()
+
+                except Exception as e:
+                    uploaded_file_record.delete()
+                    accumulated_stats['errors'].append(f"File '{file_obj.name}': {str(e)}")
+                finally:
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+
+            request.session['upload_stats'] = accumulated_stats
+            request.session['imported_transaction_ids'] = imported_transaction_ids
+
+            if accumulated_stats['successful'] > 0:
+                msg = f"Successfully parsed NayaPay statement. Formatted and saved {accumulated_stats['successful']} new records."
+                if accumulated_stats['duplicates'] > 0:
+                    msg += f" Skipped {accumulated_stats['duplicates']} duplicate transactions."
+                messages.success(request, msg)
+            elif accumulated_stats['duplicates'] > 0:
+                messages.info(request, f"Import complete. All {accumulated_stats['duplicates']} transaction(s) were skipped as duplicates.")
+            
+            for err in accumulated_stats['errors']:
+                messages.error(request, err)
+
+            return redirect('upload_transactions')
         
-        uploaded_file = form.cleaned_data['file']
-        
-        try:
-            # Read CSV content
-            file_content = uploaded_file.read().decode('utf-8-sig')  # Handle BOM
-            csv_reader = csv.DictReader(io.StringIO(file_content))
-            
-            # Normalize headers (lowercase, strip whitespace)
-            if csv_reader.fieldnames:
-                actual_headers = [h.lower().strip() for h in csv_reader.fieldnames]
-            else:
-                messages.error(self.request, "CSV file appears to be empty or has no headers.")
-                return self.form_invalid(form)
-            
-            # Validate required headers (check aliases too)
-            description_aliases = {'description', 'raw_description'}
-            has_description = bool(description_aliases & set(actual_headers))
-            has_date = 'date' in actual_headers
-            has_amount = 'amount' in actual_headers
-            
-            missing = []
-            if not has_date:
-                missing.append('Date')
-            if not has_description:
-                missing.append('Description')
-            if not has_amount:
-                missing.append('Amount')
-            
-            if missing:
-                messages.error(
-                    self.request, 
-                    f"Missing required column(s): {', '.join(missing)}. "
-                    f"Your CSV must have: Date, Description, Amount"
-                )
-                return self.form_invalid(form)
-            
-            # Process each row
-            rows = list(csv_reader)
-            stats['total_rows'] = len(rows)
-            transactions_to_create = []
-            
-            for row_num, row in enumerate(rows, start=2):
-                # Skip empty rows
-                if not any(row.values()):
+        else:
+            # Handle Template CSV upload (generic)
+            for file_obj in files:
+                if not file_obj.name.endswith('.csv'):
+                    messages.error(request, f"Skipped '{file_obj.name}': Unsupported file format. Please upload a .csv file.")
                     continue
-                
-                # Normalize row keys
-                row_normalized = {
-                    k.lower().strip(): v.strip() if v else '' 
-                    for k, v in row.items()
-                }
-                
-                # Parse date (try multiple formats including datetime)
-                date_str = row_normalized.get('date', '')
-                parsed_date = self._parse_date(date_str)
-                
-                if not parsed_date:
-                    stats['errors'].append(
-                        f"Row {row_num}: Invalid date '{date_str}'. "
-                        "Use formats like YYYY-MM-DD or DD/MM/YYYY."
-                    )
-                    continue
-                
-                # Parse description (check aliases)
-                description = (
-                    row_normalized.get('description', '') or 
-                    row_normalized.get('raw_description', '')
+
+                uploaded_file_record = UploadedFile.objects.create(
+                    user=request.user,
+                    filename=file_obj.name
                 )
-                if not description:
-                    stats['errors'].append(f"Row {row_num}: Description cannot be empty.")
-                    continue
+
+                try:
+                    file_content = file_obj.read().decode('utf-8-sig')
+                    csv_reader = csv.DictReader(io.StringIO(file_content))
+                    
+                    if not csv_reader.fieldnames:
+                        accumulated_stats['errors'].append(f"File '{file_obj.name}': Empty file or missing headers.")
+                        uploaded_file_record.delete()
+                        continue
+
+                    actual_headers = [h.lower().strip() for h in csv_reader.fieldnames]
+                    
+                    description_aliases = {'description', 'raw_description'}
+                    has_description = bool(description_aliases & set(actual_headers))
+                    has_date = 'date' in actual_headers
+                    has_amount = 'amount' in actual_headers
+                    
+                    missing = []
+                    if not has_date:
+                        missing.append('Date')
+                    if not has_description:
+                        missing.append('Description')
+                    if not has_amount:
+                        missing.append('Amount')
+                    
+                    if missing:
+                        accumulated_stats['errors'].append(
+                            f"File '{file_obj.name}': Missing required column(s) {', '.join(missing)}."
+                        )
+                        uploaded_file_record.delete()
+                        continue
+
+                    rows = list(csv_reader)
+                    accumulated_stats['total_rows'] += len(rows)
+                    transactions_to_create = []
+                    
+                    for row_num, row in enumerate(rows, start=2):
+                        if not any(row.values()):
+                            continue
+                        
+                        row_normalized = {
+                            k.lower().strip(): v.strip() if v else '' 
+                            for k, v in row.items()
+                        }
+                        
+                        date_str = row_normalized.get('date', '')
+                        parsed_date = self._parse_date(date_str)
+                        if not parsed_date:
+                            accumulated_stats['errors'].append(
+                                f"File '{file_obj.name}', Row {row_num}: Invalid date '{date_str}'."
+                            )
+                            continue
+                        
+                        description = (
+                            row_normalized.get('description', '') or 
+                            row_normalized.get('raw_description', '')
+                        )
+                        if not description:
+                            accumulated_stats['errors'].append(f"File '{file_obj.name}', Row {row_num}: Description cannot be empty.")
+                            continue
+                        
+                        amount = self._parse_amount(row_normalized.get('amount', ''))
+                        if amount is None:
+                            accumulated_stats['errors'].append(
+                                f"File '{file_obj.name}', Row {row_num}: Invalid amount '{row_normalized.get('amount', '')}'."
+                            )
+                            continue
+                        
+                        merchant_name = (
+                            row_normalized.get('merchant_name', '') or 
+                            row_normalized.get('merchant', '') or None
+                        )
+                        transaction_type = (
+                            row_normalized.get('transaction_type', '') or 
+                            row_normalized.get('type', '') or None
+                        )
+                        notes = (
+                            row_normalized.get('notes', '') or 
+                            row_normalized.get('comments', '') or 
+                            row_normalized.get('memo', '') or None
+                        )
+                        
+                        raw_hash_string = f"{request.user.id}|{parsed_date}|{amount}|{description.strip().lower()}"
+                        tx_hash = hashlib.sha256(raw_hash_string.encode('utf-8')).hexdigest()
+                        
+                        if Transaction.objects.filter(user=request.user, tx_hash=tx_hash).exists():
+                            accumulated_stats['duplicates'] += 1
+                            continue
+
+                        transactions_to_create.append(Transaction(
+                            user=request.user,
+                            uploaded_file=uploaded_file_record,
+                            date=parsed_date,
+                            description=description[:255],
+                            amount=amount,
+                            merchant_name=merchant_name[:100] if merchant_name else None,
+                            transaction_type=transaction_type[:50] if transaction_type else None,
+                            notes=notes,
+                            tx_hash=tx_hash
+                        ))
+                        accumulated_stats['successful'] += 1
+                    
+                    created_transactions = []
+                    if transactions_to_create:
+                        created_transactions = Transaction.objects.bulk_create(transactions_to_create)
+                    
+                    imported_transaction_ids.extend([t.id for t in created_transactions])
+
+                    if len(transactions_to_create) == 0:
+                        uploaded_file_record.delete()
+
+                except UnicodeDecodeError:
+                    uploaded_file_record.delete()
+                    accumulated_stats['errors'].append(f"File '{file_obj.name}': Unable to read file (encoding error).")
+                except Exception as e:
+                    uploaded_file_record.delete()
+                    accumulated_stats['errors'].append(f"File '{file_obj.name}': {str(e)}")
+
+            request.session['imported_transaction_ids'] = imported_transaction_ids
+            request.session['upload_stats'] = accumulated_stats
+            
+            if accumulated_stats['successful'] > 0:
+                msg = f"Successfully imported {accumulated_stats['successful']} transaction(s) using Template!"
+                if accumulated_stats['duplicates'] > 0:
+                    msg += f" Skipped {accumulated_stats['duplicates']} duplicate(s)."
+                messages.success(request, msg)
+            elif accumulated_stats['duplicates'] > 0:
+                messages.info(request, f"Import complete. All {accumulated_stats['duplicates']} transaction(s) were skipped as duplicates.")
                 
-                # Parse amount
-                amount = self._parse_amount(row_normalized.get('amount', ''))
-                if amount is None:
-                    stats['errors'].append(
-                        f"Row {row_num}: Invalid amount '{row_normalized.get('amount', '')}'. "
-                        "Must be a number."
-                    )
-                    continue
-                
-                # Extract optional signal fields via alias mapping
-                merchant_name = (
-                    row_normalized.get('merchant_name', '') or 
-                    row_normalized.get('merchant', '') or None
-                )
-                transaction_type = (
-                    row_normalized.get('transaction_type', '') or 
-                    row_normalized.get('type', '') or None
-                )
-                notes = (
-                    row_normalized.get('notes', '') or 
-                    row_normalized.get('comments', '') or 
-                    row_normalized.get('memo', '') or None
-                )
-                
-                # Create transaction object with all available fields
-                transactions_to_create.append(Transaction(
-                    user=self.request.user,
-                    date=parsed_date,
-                    description=description[:255],
-                    amount=amount,
-                    merchant_name=merchant_name[:100] if merchant_name else None,
-                    transaction_type=transaction_type[:50] if transaction_type else None,
-                    notes=notes
-                ))
-                stats['successful'] += 1
-            
-            # Bulk create transactions
-            created_transactions = []
-            if transactions_to_create:
-                created_transactions = Transaction.objects.bulk_create(transactions_to_create)
-            
-            stats['processed'] = True
-            
-            # Store transaction IDs in session for preview
-            self.request.session['imported_transaction_ids'] = [
-                t.id for t in created_transactions
-            ]
-            self.request.session['upload_stats'] = stats
-            
-            # Show success/warning messages
-            if stats['successful'] > 0:
-                messages.success(
-                    self.request, 
-                    f"Successfully imported {stats['successful']} transaction(s)!"
-                )
-            
-            if stats['errors']:
+            if accumulated_stats['errors']:
                 messages.warning(
-                    self.request, 
-                    f"{len(stats['errors'])} row(s) had issues and were skipped."
+                    request, 
+                    f"{len(accumulated_stats['errors'])} issue(s) occurred during parsing."
                 )
-            
-            if stats['successful'] == 0 and not stats['errors']:
-                messages.info(self.request, "No transactions were found in the file.")
-                
-        except UnicodeDecodeError:
-            messages.error(
-                self.request, 
-                "Unable to read file. Please ensure it's saved as UTF-8 encoded CSV."
-            )
-            return self.form_invalid(form)
-        except Exception as e:
-            messages.error(self.request, f"An error occurred while processing: {str(e)}")
-            return self.form_invalid(form)
-        
-        # Redirect to self to show results (PRG pattern)
-        return redirect('upload_transactions')
-    
-    def form_invalid(self, form):
-        """Handle invalid form submission."""
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(self.request, error)
-        return super().form_invalid(form)
-    
+                for err in accumulated_stats['errors'][:5]:
+                    messages.error(request, err)
+
+            return redirect('upload_transactions')
+
     def _parse_date(self, date_str):
         """Parse date string trying multiple formats including datetime."""
         date_formats = [
@@ -428,12 +483,14 @@ class AISortingView(LoginRequiredMixin, View):
             for error in result.errors[:3]:
                 messages.error(request, error)
 
+        except ValueError as e:
+            messages.error(request, f"Configuration Error: {str(e)}")
         except AIServiceError as e:
-            messages.error(request, str(e))
+            messages.error(request, f"AI Service Error: {str(e)}")
         except Exception as e:
             messages.error(
                 request,
-                "AI Sorting delayed. Please refresh and try again."
+                f"AI Sorting encountered an unexpected issue: {str(e)}. Please check your internet connection and try again."
             )
 
         return redirect('ai_sorting')
@@ -529,3 +586,50 @@ class UpdateTransactionCategoryAPI(LoginRequiredMixin, View):
             return JsonResponse({'status': 'error', 'message': 'Category not found'}, status=404)
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+class DeleteTransactionAPI(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to delete a transaction.
+    """
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body)
+            transaction_id = data.get('transaction_id')
+            if not transaction_id:
+                return JsonResponse({'status': 'error', 'message': 'Missing transaction ID'}, status=400)
+            
+            transaction = Transaction.objects.get(id=transaction_id, user=request.user)
+            transaction.delete()
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Transaction deleted successfully'
+            })
+        except Transaction.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Transaction not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+class ClearAllTransactionsView(LoginRequiredMixin, View):
+    """
+    Clears all transactions and uploaded files for the logged-in user.
+    """
+    def post(self, request, *args, **kwargs):
+        from .models import UploadedFile
+        try:
+            tx_count = Transaction.objects.filter(user=request.user).count()
+            Transaction.objects.filter(user=request.user).delete()
+            
+            file_count = UploadedFile.objects.filter(user=request.user).count()
+            UploadedFile.objects.filter(user=request.user).delete()
+            
+            messages.success(
+                request, 
+                f"Successfully deleted all data. Cleared {tx_count} transaction(s) and {file_count} upload record(s)."
+            )
+        except Exception as e:
+            messages.error(request, f"Failed to clear history: {str(e)}")
+            
+        return redirect('upload_transactions')
+

@@ -32,12 +32,18 @@ METABASE_EMBEDDING_SECRET_KEY = os.getenv('METABASE_EMBEDDING_SECRET_KEY', '')
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-(1^d$o^@!%f)4)*yx%v1ozt##_fe2v1rg5os)_6m+sf$p5cx!9'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-(1^d$o^@!%f)4)*yx%v1ozt##_fe2v1rg5os)_6m+sf$p5cx!9')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+raw_hosts = os.getenv('DJANGO_ALLOWED_HOSTS', '')
+if raw_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(',')]
+else:
+    # Safe fallback: wildcard or local only depending on DEBUG mode
+    ALLOWED_HOSTS = [] if not DEBUG else ['localhost', '127.0.0.1', '[::1]']
+
 
 
 # Application definition
