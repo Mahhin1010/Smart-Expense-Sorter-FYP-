@@ -45,15 +45,15 @@
                     </p>
                 </div>
             {% elif iframe_url %}
-                <!-- Clean Seamless Iframe Container (Height increased to 1250px to fit all cards and remove internal scrollbar) -->
-                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1250px; display: flex; flex-direction: column;">
+                <!-- Clean Seamless Iframe Container (Height set to 1280px with positive margin to ensure top filter/date pickers are fully visible) -->
+                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1280px; display: flex; flex-direction: column;">
                     <iframe
                         id="metabase-iframe"
                         src="{{ iframe_url }}"
                         frameborder="0"
                         width="100%"
-                        height="1250px"
-                        style="border: none; background: transparent; flex: 1; min-height: 1250px; overflow: hidden; margin-top: -45px;"
+                        height="1280px"
+                        style="border: none; background: transparent; flex: 1; min-height: 1280px; overflow: hidden; margin-top: 10px;"
                         allowtransparency
                         scrolling="no"
                     ></iframe>
