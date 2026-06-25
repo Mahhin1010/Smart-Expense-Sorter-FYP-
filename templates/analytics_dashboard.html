@@ -4,33 +4,32 @@
 {% block title %}Analytics - Smart Sorter{% endblock %}
 
 {% block content %}
-<div class="dashboard-container" style="background: var(--primary-bg); padding: 20px 24px 40px; min-height: 100vh;">
+<div class="dashboard-container" style="background: var(--primary-bg); padding: 15px 24px 30px; min-height: 100vh;">
     <div style="max-width: 1400px; margin: 0 auto;">
         
-        <!-- Header Section -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 16px;">
-            <h1 style="color: var(--text-main); font-size: 1.75rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">Financial Analytics</h1>
+        <!-- Compact Navigation & Actions Row (Removes separate heading to maximize vertical space) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px; gap: 16px; flex-wrap: wrap;">
+            <!-- Tabs (Left Side) -->
+            <div class="analytics-tabs-wrapper" style="display: flex; gap: 8px;">
+                <button id="tab-expense" class="analytics-tab active" onclick="switchTab('expense')">
+                    <i class="fas fa-chart-line"></i> Expense Analysis
+                </button>
+                <button id="tab-ai" class="analytics-tab" onclick="switchTab('ai')">
+                    <i class="fas fa-robot"></i> AI Usage
+                </button>
+            </div>
             
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <!-- Action Buttons (Right Side) -->
+            <div style="display: flex; align-items: center; gap: 8px;">
                 {% if request.user.is_superuser %}
-                    <a href="{{ metabase_builder_url }}" target="_blank" class="btn-metabase-builder" style="text-decoration: none; padding: 8px 16px; background: var(--primary-accent); color: #fff; border-radius: 8px; font-size: 0.85rem; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); display: inline-flex; align-items: center; gap: 6px;">
+                    <a href="{{ metabase_builder_url }}" target="_blank" class="btn-metabase-builder" style="text-decoration: none; padding: 6px 12px; background: var(--primary-accent); color: #fff; border-radius: 6px; font-size: 0.8rem; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); display: inline-flex; align-items: center; gap: 6px;">
                         <i class="fas fa-external-link-alt"></i> Launch Metabase Builder
                     </a>
                 {% endif %}
-                <a href="{% url 'home' %}" class="btn-return" style="text-decoration: none; padding: 8px 16px; background: rgba(255, 255, 255, 0.05); color: var(--text-main); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.85rem; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px;">
+                <a href="{% url 'home' %}" class="btn-return" style="text-decoration: none; padding: 6px 12px; background: rgba(255, 255, 255, 0.05); color: var(--text-main); border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.8rem; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fas fa-arrow-left"></i> Back to Home
                 </a>
             </div>
-        </div>
-
-        <!-- Dashboard Navigation Tabs -->
-        <div class="analytics-tabs-wrapper" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-top: 5px;">
-            <button id="tab-expense" class="analytics-tab active" onclick="switchTab('expense')">
-                <i class="fas fa-chart-line"></i> Expense Analysis
-            </button>
-            <button id="tab-ai" class="analytics-tab" onclick="switchTab('ai')">
-                <i class="fas fa-robot"></i> AI Usage
-            </button>
         </div>
 
         <!-- Panel 1: Expense Analysis -->
@@ -46,15 +45,15 @@
                     </p>
                 </div>
             {% elif iframe_url %}
-                <!-- Clean Seamless Iframe Container (Reduced min-height and added negative top margin to pull content up) -->
-                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1020px; display: flex; flex-direction: column;">
+                <!-- Clean Seamless Iframe Container (Height increased to 1250px to fit all cards and remove internal scrollbar) -->
+                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1250px; display: flex; flex-direction: column;">
                     <iframe
                         id="metabase-iframe"
                         src="{{ iframe_url }}"
                         frameborder="0"
                         width="100%"
-                        height="1020px"
-                        style="border: none; background: transparent; flex: 1; min-height: 1020px; overflow: hidden; margin-top: -35px;"
+                        height="1250px"
+                        style="border: none; background: transparent; flex: 1; min-height: 1250px; overflow: hidden; margin-top: -45px;"
                         allowtransparency
                         scrolling="no"
                     ></iframe>
@@ -97,10 +96,10 @@
         border: none;
         color: var(--text-muted);
         font-weight: 500;
-        padding: 8px 16px;
-        border-radius: 8px;
+        padding: 6px 12px;
+        border-radius: 6px;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         transition: all 0.25s ease;
         display: inline-flex;
         align-items: center;
@@ -121,7 +120,7 @@
     
     /* Return Button Styling */
     .btn-return:hover {
-        background: rgba(0, 0, 0, 0.05) !important;
+        background: rgba(0, 0, 0, 0.03) !important;
         border-color: var(--text-muted) !important;
         transform: translateY(-1px);
     }
