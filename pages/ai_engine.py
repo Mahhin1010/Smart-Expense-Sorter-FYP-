@@ -310,7 +310,6 @@ class OpenAIClassifier:
             transactions=batch_payload
         )
 
-        from openai import OpenAI
         client = OpenAI(api_key=api_key)
 
         last_error = None
@@ -377,7 +376,6 @@ class DeepSeekClassifier:
             transactions=batch_payload
         )
 
-        from openai import OpenAI
         client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 
         last_error = None

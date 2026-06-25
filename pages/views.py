@@ -559,10 +559,11 @@ class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
         
         try:
             token = jwt.encode(payload, secret_key, algorithm="HS256")
-            context['iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{token}#bordered=true&titled=true"
+            context['iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{token}#bordered=false&titled=false&background=false"
         except Exception as e:
             context['embed_error'] = f"Failed to generate secure embed link: {str(e)}"
             
+        context['metabase_builder_url'] = settings.METABASE_SITE_URL
         return context
 
 

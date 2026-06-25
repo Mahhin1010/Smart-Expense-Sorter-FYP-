@@ -4,47 +4,189 @@
 {% block title %}Analytics - Smart Sorter{% endblock %}
 
 {% block content %}
-<div class="dashboard-container" style="background: var(--primary-bg); padding: 40px 24px 80px; min-height: 100vh;">
+<div class="dashboard-container" style="background: var(--primary-bg); padding: 20px 24px 40px; min-height: 100vh;">
     <div style="max-width: 1400px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h1 style="color: #fff; font-size: 2rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">Financial Analytics</h1>
-            <a href="{% url 'home' %}" class="btn-return" style="text-decoration: none; padding: 10px 20px; background: rgba(255, 255, 255, 0.05); color: #fff; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; transition: all 0.3s ease;">
-                <i class="fas fa-arrow-left" style="margin-right: 8px;"></i> Back to Home
-            </a>
+        
+        <!-- Header Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 16px;">
+            <h1 style="color: var(--text-main); font-size: 1.75rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">Financial Analytics</h1>
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+                {% if request.user.is_superuser %}
+                    <a href="{{ metabase_builder_url }}" target="_blank" class="btn-metabase-builder" style="text-decoration: none; padding: 8px 16px; background: var(--primary-accent); color: #fff; border-radius: 8px; font-size: 0.85rem; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-external-link-alt"></i> Launch Metabase Builder
+                    </a>
+                {% endif %}
+                <a href="{% url 'home' %}" class="btn-return" style="text-decoration: none; padding: 8px 16px; background: rgba(255, 255, 255, 0.05); color: var(--text-main); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.85rem; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-arrow-left"></i> Back to Home
+                </a>
+            </div>
         </div>
 
-        {% if embed_error %}
-            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 20px; border-radius: 12px; font-family: inherit;">
-                <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600;"><i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> Configuration Error</h4>
-                <p style="margin: 0; opacity: 0.9;">{{ embed_error }}</p>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.7;">Please configure the `METABASE_EMBEDDING_SECRET_KEY` in your `.env` file and verify Metabase is running on port 3000.</p>
+        <!-- Dashboard Navigation Tabs -->
+        <div class="analytics-tabs-wrapper" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-top: 5px;">
+            <button id="tab-expense" class="analytics-tab active" onclick="switchTab('expense')">
+                <i class="fas fa-chart-line"></i> Expense Analysis
+            </button>
+            <button id="tab-ai" class="analytics-tab" onclick="switchTab('ai')">
+                <i class="fas fa-robot"></i> AI Usage
+            </button>
+        </div>
+
+        <!-- Panel 1: Expense Analysis -->
+        <div id="panel-expense" class="tab-panel active">
+            {% if embed_error %}
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; padding: 20px; border-radius: 12px; font-family: inherit;">
+                    <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-exclamation-circle"></i> Configuration Error
+                    </h4>
+                    <p style="margin: 0; opacity: 0.9; line-height: 1.5;">{{ embed_error }}</p>
+                    <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">
+                        Please configure the `METABASE_EMBEDDING_SECRET_KEY` in your `.env` file and verify Metabase is running on port 3000.
+                    </p>
+                </div>
+            {% elif iframe_url %}
+                <!-- Clean Seamless Iframe Container (Reduced min-height and added negative top margin to pull content up) -->
+                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1020px; display: flex; flex-direction: column;">
+                    <iframe
+                        id="metabase-iframe"
+                        src="{{ iframe_url }}"
+                        frameborder="0"
+                        width="100%"
+                        height="1020px"
+                        style="border: none; background: transparent; flex: 1; min-height: 1020px; overflow: hidden; margin-top: -35px;"
+                        allowtransparency
+                        scrolling="no"
+                    ></iframe>
+                </div>
+            {% else %}
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 20px; border-radius: 12px; font-family: inherit;">
+                    <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-info-circle"></i> Information
+                    </h4>
+                    <p style="margin: 0; opacity: 0.9; line-height: 1.5;">
+                        Analytics server is loading. If this persists, verify your settings.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Panel 2: AI Usage Placeholder -->
+        <div id="panel-ai" class="tab-panel" style="display: none;">
+            <div class="coming-soon-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 50px 24px; text-align: center; max-width: 800px; margin: 30px auto; box-shadow: var(--shadow-md); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+                <div style="width: 70px; height: 70px; background: var(--accent-glow); color: var(--primary-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 2rem;">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h2 style="color: var(--text-main); font-size: 1.6rem; font-weight: 700; margin-bottom: 10px;">AI Usage Analytics</h2>
+                <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; max-width: 550px; margin: 0 auto 24px;">
+                    We are compiling telemetry data on transaction hash matching, model tokens efficiency, and categorization feedback loops. The AI usage dashboard will be available soon!
+                </p>
+                <button class="btn-metabase-builder" onclick="switchTab('expense')" style="background: var(--primary-accent); border: none; color: #fff; padding: 10px 24px; border-radius: var(--radius-md); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                    <i class="fas fa-chart-line" style="margin-right: 8px;"></i> Go Back to Expense Analysis
+                </button>
             </div>
-        {% elif iframe_url %}
-            <!-- Beautiful Glassmorphism Container for the Iframe -->
-            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); height: 80vh; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                <iframe
-                    src="{{ iframe_url }}"
-                    frameborder="0"
-                    width="100%"
-                    height="100%"
-                    style="border: none; background: transparent;"
-                    allowtransparency
-                ></iframe>
-            </div>
-        {% else %}
-            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; padding: 20px; border-radius: 12px; font-family: inherit;">
-                <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600;"><i class="fas fa-info-circle" style="margin-right: 8px;"></i> Information</h4>
-                <p style="margin: 0; opacity: 0.9;">Analytics server is loading. If this persists, verify your settings.</p>
-            </div>
-        {% endif %}
+        </div>
+
     </div>
 </div>
 
 <style>
+    /* Tab Styling */
+    .analytics-tab {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.25s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .analytics-tab:hover {
+        color: var(--text-main);
+        background: rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="dark"] .analytics-tab:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .analytics-tab.active {
+        color: var(--primary-accent);
+        background: var(--accent-glow);
+        font-weight: 600;
+    }
+    
+    /* Return Button Styling */
     .btn-return:hover {
-        background: rgba(255, 255, 255, 0.15) !important;
-        border-color: rgba(255, 255, 255, 0.2) !important;
-        transform: translateY(-2px);
+        background: rgba(0, 0, 0, 0.05) !important;
+        border-color: var(--text-muted) !important;
+        transform: translateY(-1px);
+    }
+    [data-theme="dark"] .btn-return {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    [data-theme="dark"] .btn-return:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* Builder Button Styling */
+    .btn-metabase-builder:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
     }
 </style>
-{% endblock %}
+
+<script>
+    // Tab switching logic
+    function switchTab(tabName) {
+        document.querySelectorAll('.analytics-tab').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.style.display = 'none');
+        
+        if (tabName === 'expense') {
+            document.getElementById('tab-expense').classList.add('active');
+            document.getElementById('panel-expense').style.display = 'block';
+        } else if (tabName === 'ai') {
+            document.getElementById('tab-ai').classList.add('active');
+            document.getElementById('panel-ai').style.display = 'block';
+        }
+    }
+
+    // Dynamic Metabase theme synchronization
+    function syncMetabaseTheme() {
+        const iframe = document.getElementById('metabase-iframe');
+        if (!iframe) return;
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        let src = iframe.src;
+        if (!src) return;
+        
+        const baseUrl = src.split('#')[0];
+        let hashParams = 'bordered=false&titled=false&background=false';
+        if (currentTheme === 'dark') {
+            hashParams += '&theme=night';
+        }
+        
+        const targetUrl = `${baseUrl}#${hashParams}`;
+        if (iframe.src !== targetUrl) {
+            iframe.src = targetUrl;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Run on page load
+        syncMetabaseTheme();
+        
+        // Listen to dynamic HTML theme toggle updates
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'data-theme') {
+                    syncMetabaseTheme();
+                }
+            });
+        });
+        observer.observe(document.documentElement, { attributes: true });
+    });
+</script>
+{% endblock %}
