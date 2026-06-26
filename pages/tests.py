@@ -535,4 +535,80 @@ class PagesSystemTests(TestCase):
         self.assertEqual(txn.category, self.cat_food_a)
         self.assertEqual(txn.ai_confidence, 0.99)
 
+    @patch('pages.ai_engine.GeminiClassifier.classify_batch')
+    def test_tc_30_ai_telemetry_logging_success(self, mock_classify):
+        """TC-30: Verify that AITelemetryLog is correctly written on successful classification."""
+        from accounts.models import AITelemetryLog
+        from pages.ai_engine import ClassifierOutput
+        
+        self.client.login(username="usera", password="PasswordA123!")
+        
+        txn = Transaction.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 2, 1),
+            description="Telemetry Test",
+            amount=Decimal("-500")
+        )
+        
+        profile = self.user_a.profile
+        profile.ai_provider = 'gemini'
+        profile.gemini_model = 'gemini-2.5-flash'
+        profile.save()
+        
+        mock_classify.return_value = ClassifierOutput(
+            results=[{"id": txn.id, "category": "Food", "confidence": 0.90, "suggested_category": None}],
+            input_tokens=1000,
+            output_tokens=200,
+            latency_seconds=1.5
+        )
+        
+        url = reverse('ai_sorting')
+        self.client.post(url)
+        
+        log = AITelemetryLog.objects.filter(user=self.user_a, provider='gemini').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.model_name, 'gemini-2.5-flash')
+        self.assertEqual(log.batch_size, 1)
+        self.assertEqual(log.latency_seconds, 1.5)
+        self.assertEqual(log.input_tokens, 1000)
+        self.assertEqual(log.output_tokens, 200)
+        self.assertTrue(log.success)
+        self.assertEqual(float(log.calculated_cost_usd), 0.0008)
+
+    @patch('pages.ai_engine.GeminiClassifier.classify_batch')
+    def test_tc_31_ai_telemetry_logging_failure(self, mock_classify):
+        """TC-31: Verify that AITelemetryLog is correctly written on classification failure."""
+        from accounts.models import AITelemetryLog
+        from pages.ai_engine import AIServiceError
+        
+        self.client.login(username="usera", password="PasswordA123!")
+        
+        txn = Transaction.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 2, 1),
+            description="Telemetry Test Fail",
+            amount=Decimal("-500")
+        )
+        
+        profile = self.user_a.profile
+        profile.ai_provider = 'gemini'
+        profile.gemini_model = 'gemini-2.5-flash'
+        profile.save()
+        
+        mock_classify.side_effect = AIServiceError("API quota exceeded")
+        
+        url = reverse('ai_sorting')
+        self.client.post(url)
+        
+        log = AITelemetryLog.objects.filter(user=self.user_a, provider='gemini').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.model_name, 'gemini-2.5-flash')
+        self.assertEqual(log.batch_size, 1)
+        self.assertFalse(log.success)
+        self.assertEqual(log.error_type, 'AIServiceError')
+        self.assertEqual(log.input_tokens, 0)
+        self.assertEqual(log.output_tokens, 0)
+        self.assertEqual(float(log.calculated_cost_usd), 0.0)
+
+
 
