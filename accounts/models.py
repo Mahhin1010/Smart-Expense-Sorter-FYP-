@@ -16,7 +16,7 @@ class UserProfile(models.Model):
     ]
     ai_provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='gemini')
     
-    gemini_model = models.CharField(max_length=50, default='gemini-2.5-flash')
+    gemini_model = models.CharField(max_length=50, default='gemini-3.1-flash-lite')
     openai_model = models.CharField(max_length=50, default='gpt-4.1-nano')
     deepseek_model = models.CharField(max_length=50, default='deepseek-chat')
 

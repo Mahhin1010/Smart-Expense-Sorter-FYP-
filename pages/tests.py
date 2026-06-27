@@ -440,7 +440,7 @@ class PagesSystemTests(TestCase):
         # Verify settings saved
         self.user_a.profile.refresh_from_db()
         self.assertEqual(self.user_a.profile.ai_provider, 'openai')
-        self.assertEqual(self.user_a.profile.gemini_model, 'gemini-2.0-flash')
+        self.assertEqual(self.user_a.profile.gemini_model, 'gemini-3.1-flash-lite')
         self.assertEqual(self.user_a.profile.gemini_api_key, 'test-gemini-key')
         self.assertEqual(self.user_a.profile.openai_model, 'gpt-4.1-nano')
         self.assertEqual(self.user_a.profile.openai_api_key, 'test-openai-key')
@@ -552,7 +552,7 @@ class PagesSystemTests(TestCase):
         
         profile = self.user_a.profile
         profile.ai_provider = 'gemini'
-        profile.gemini_model = 'gemini-2.5-flash'
+        profile.gemini_model = 'gemini-3.1-flash-lite'
         profile.save()
         
         mock_classify.return_value = ClassifierOutput(
@@ -567,13 +567,13 @@ class PagesSystemTests(TestCase):
         
         log = AITelemetryLog.objects.filter(user=self.user_a, provider='gemini').first()
         self.assertIsNotNone(log)
-        self.assertEqual(log.model_name, 'gemini-2.5-flash')
+        self.assertEqual(log.model_name, 'gemini-3.1-flash-lite')
         self.assertEqual(log.batch_size, 1)
         self.assertEqual(log.latency_seconds, 1.5)
         self.assertEqual(log.input_tokens, 1000)
         self.assertEqual(log.output_tokens, 200)
         self.assertTrue(log.success)
-        self.assertEqual(float(log.calculated_cost_usd), 0.0008)
+        self.assertEqual(float(log.calculated_cost_usd), 0.00055)
 
     @patch('pages.ai_engine.GeminiClassifier.classify_batch')
     def test_tc_31_ai_telemetry_logging_failure(self, mock_classify):
@@ -592,7 +592,7 @@ class PagesSystemTests(TestCase):
         
         profile = self.user_a.profile
         profile.ai_provider = 'gemini'
-        profile.gemini_model = 'gemini-2.5-flash'
+        profile.gemini_model = 'gemini-3.1-flash-lite'
         profile.save()
         
         mock_classify.side_effect = AIServiceError("API quota exceeded")
@@ -602,7 +602,7 @@ class PagesSystemTests(TestCase):
         
         log = AITelemetryLog.objects.filter(user=self.user_a, provider='gemini').first()
         self.assertIsNotNone(log)
-        self.assertEqual(log.model_name, 'gemini-2.5-flash')
+        self.assertEqual(log.model_name, 'gemini-3.1-flash-lite')
         self.assertEqual(log.batch_size, 1)
         self.assertFalse(log.success)
         self.assertEqual(log.error_type, 'AIServiceError')

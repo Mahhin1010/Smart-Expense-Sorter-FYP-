@@ -39,6 +39,7 @@ AI_PRICING = {
     "deepseek-chat":       {"input": 0.000000140, "output": 0.000000280},
     "deepseek-v4-flash":   {"input": 0.000000140, "output": 0.000000280},
     "gpt-4.1-nano":        {"input": 0.000000100, "output": 0.000000400},
+    "gemini-3.1-flash-lite":{"input": 0.000000250, "output": 0.000001500},
     "gemini-2.5-flash":    {"input": 0.000000300, "output": 0.000002500},
     "gemini-2.0-flash":    {"input": 0.000000300, "output": 0.000002500},  # deprecated alias fallback
     "gemini-1.5-flash":    {"input": 0.000000075, "output": 0.000000300},
@@ -155,7 +156,7 @@ class GeminiClassifier:
     Model: gemini-1.5-flash (optimized for speed + cost at scale).
     """
 
-    MODEL_NAME = 'gemini-2.5-flash'
+    MODEL_NAME = 'gemini-3.1-flash-lite'
     TIMEOUT_SECONDS = 30
 
     SYSTEM_PROMPT_TEMPLATE = """You are a financial transaction classifier for Pakistani bank statements.

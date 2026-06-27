@@ -86,7 +86,7 @@
                     {% csrf_token %}
                     <button type="submit" class="btn-process" id="btn-process">
                         <i class="fas fa-bolt"></i>
-                        <span id="btn-text">Process with AI</span>
+                        <span id="btn-text">Process with {{ provider_display }} ({{ model_display }})</span>
                         <span class="spinner" id="spinner"><i class="fas fa-circle-notch"></i></span>
                     </button>
                 </form>
