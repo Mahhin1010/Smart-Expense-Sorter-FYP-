@@ -121,6 +121,14 @@ class Transaction(models.Model):
         db_index=True,
         help_text="SHA-256 hash of core fields to detect duplicates"
     )
+    ai_run = models.ForeignKey(
+        'accounts.AITelemetryLog',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions',
+        help_text="Link to the telemetry log representing the API call that categorized this transaction"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

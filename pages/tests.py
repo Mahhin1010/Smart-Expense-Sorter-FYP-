@@ -574,6 +574,9 @@ class PagesSystemTests(TestCase):
         self.assertEqual(log.output_tokens, 200)
         self.assertTrue(log.success)
         self.assertEqual(float(log.calculated_cost_usd), 0.00055)
+        
+        txn.refresh_from_db()
+        self.assertEqual(txn.ai_run, log)
 
     @patch('pages.ai_engine.GeminiClassifier.classify_batch')
     def test_tc_31_ai_telemetry_logging_failure(self, mock_classify):

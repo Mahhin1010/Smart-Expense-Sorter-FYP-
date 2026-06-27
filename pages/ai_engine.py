@@ -586,6 +586,8 @@ class AICategorizationService:
         batches = list(self.batcher.create_batches(uncategorized_qs))
         num_batches = len(batches)
 
+        from django.db import transaction
+
         for idx, batch in enumerate(batches):
             payload = self.batcher.prepare_batch_payload(batch)
 
@@ -595,7 +597,7 @@ class AICategorizationService:
             elif ai_provider == 'deepseek':
                 model_name = profile.deepseek_model or "deepseek-chat"
             else:
-                model_name = profile.gemini_model or "gemini-2.5-flash"
+                model_name = profile.gemini_model or "gemini-3.1-flash-lite"
 
             try:
                 if ai_provider == 'openai':
@@ -627,85 +629,93 @@ class AICategorizationService:
                 if not isinstance(latency, (int, float)) or type(latency).__name__ in ('Mock', 'MagicMock'):
                     latency = 0.0
 
+                # Validate results
                 validated = ResponseValidator.validate(ai_results, category_name_set)
                 batch_map = {txn.id: txn for txn in batch}
+                batch_txns_to_update = []
 
-                for classification in validated:
-                    txn = batch_map.get(classification.transaction_id)
-                    if not txn:
-                        continue
+                # Log telemetry and update transactions atomically
+                with transaction.atomic():
+                    pricing = AI_PRICING.get(model_name, {"input": 0.0, "output": 0.0})
+                    cost = (input_tokens * pricing["input"]) + (output_tokens * pricing["output"])
+                    confidences = [r.get('confidence', 0.0) for r in ai_results if r.get('confidence') is not None]
+                    avg_confidence = sum(confidences) / len(confidences) if confidences else None
 
-                    cat_obj = category_map.get(classification.category_name)
-                    if not cat_obj:
-                        cat_obj = category_map.get('Uncategorized', uncategorized_cat)
+                    from accounts.models import AITelemetryLog
+                    log_instance = AITelemetryLog.objects.create(
+                        user=user,
+                        provider=ai_provider,
+                        model_name=model_name,
+                        batch_size=len(batch),
+                        latency_seconds=latency,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        calculated_cost_usd=cost,
+                        avg_confidence=avg_confidence,
+                        success=True
+                    )
 
-                    txn.category = cat_obj
-                    txn.ai_confidence = classification.confidence
-                    txn.is_ai_categorized = True
-                    txn.ai_suggested_category = classification.suggested_category
-                    transactions_to_update.append(txn)
+                    for classification in validated:
+                        txn = batch_map.get(classification.transaction_id)
+                        if not txn:
+                            continue
 
-                    if classification.is_valid:
-                        result.total_categorized += 1
-                    else:
-                        result.total_low_confidence += 1
+                        cat_obj = category_map.get(classification.category_name)
+                        if not cat_obj:
+                            cat_obj = category_map.get('Uncategorized', uncategorized_cat)
 
-                    result.results.append(classification)
+                        txn.category = cat_obj
+                        txn.ai_confidence = classification.confidence
+                        txn.is_ai_categorized = True
+                        txn.ai_suggested_category = classification.suggested_category
+                        txn.ai_run = log_instance  # direct FK relationship link
+                        batch_txns_to_update.append(txn)
 
-                # Log successful API call telemetry
-                pricing = AI_PRICING.get(model_name, {"input": 0.0, "output": 0.0})
-                cost = (input_tokens * pricing["input"]) + (output_tokens * pricing["output"])
-                confidences = [r.get('confidence', 0.0) for r in ai_results if r.get('confidence') is not None]
-                avg_confidence = sum(confidences) / len(confidences) if confidences else None
+                        if classification.is_valid:
+                            result.total_categorized += 1
+                        else:
+                            result.total_low_confidence += 1
 
-                from accounts.models import AITelemetryLog
-                AITelemetryLog.objects.create(
-                    user=user,
-                    provider=ai_provider,
-                    model_name=model_name,
-                    batch_size=len(batch),
-                    latency_seconds=latency,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    calculated_cost_usd=cost,
-                    avg_confidence=avg_confidence,
-                    success=True
-                )
+                        result.results.append(classification)
+
+                    if batch_txns_to_update:
+                        Transaction.objects.bulk_update(
+                            batch_txns_to_update,
+                            fields=['category', 'ai_confidence', 'is_ai_categorized', 'ai_suggested_category', 'ai_run'],
+                            batch_size=100
+                        )
+                        transactions_to_update.extend(batch_txns_to_update)
 
             except AIServiceError as e:
                 logger.error(f"Batch classification failed: {e}")
                 result.total_errors += len(batch)
                 result.errors.append(str(e))
 
-                # Log failed API call telemetry
+                # Log failed API call telemetry atomically
                 from accounts.models import AITelemetryLog
-                AITelemetryLog.objects.create(
-                    user=user,
-                    provider=ai_provider,
-                    model_name=model_name,
-                    batch_size=len(batch),
-                    latency_seconds=0.0,
-                    input_tokens=0,
-                    output_tokens=0,
-                    calculated_cost_usd=0.0,
-                    success=False,
-                    error_type="AIServiceError"
-                )
+                with transaction.atomic():
+                    AITelemetryLog.objects.create(
+                        user=user,
+                        provider=ai_provider,
+                        model_name=model_name,
+                        batch_size=len(batch),
+                        latency_seconds=0.0,
+                        input_tokens=0,
+                        output_tokens=0,
+                        calculated_cost_usd=0.0,
+                        success=False,
+                        error_type="AIServiceError"
+                    )
 
             # Add throttling delay between sequential batches
             if idx < num_batches - 1:
                 logger.info("Throttling request. Sleeping for 3 seconds...")
                 time.sleep(3)
 
-        # Step 5: Bulk update
+        # Step 5: Log complete status
         if transactions_to_update:
-            Transaction.objects.bulk_update(
-                transactions_to_update,
-                fields=['category', 'ai_confidence', 'is_ai_categorized', 'ai_suggested_category'],
-                batch_size=100
-            )
             logger.info(
-                f"Bulk-updated {len(transactions_to_update)} transactions for user {user.username}"
+                f"Successfully processed and updated {len(transactions_to_update)} transactions for user {user.username}"
             )
 
         return result
