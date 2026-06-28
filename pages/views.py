@@ -297,10 +297,18 @@ class AISortingView(LoginRequiredMixin, View):
         category_count = Category.objects.filter(user=request.user).count()
 
         # Get recently classified transactions for results display
-        recent_ai_results = Transaction.objects.filter(
+        recent_ai_results = list(Transaction.objects.filter(
             user=request.user,
             is_ai_categorized=True
-        ).select_related('category').order_by('-created_at')[:50]
+        ).select_related('category')[:50])
+        
+        # Sort in memory: Uncategorized (manual review) first, then absolute amount descending
+        recent_ai_results.sort(
+            key=lambda t: (
+                0 if not t.category or t.category.name == 'Uncategorized' else 1,
+                -abs(t.amount)
+            )
+        )
 
         # Pass categories for the inline dropdowns
         user_categories = Category.objects.filter(user=request.user).order_by('name')
