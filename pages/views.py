@@ -545,10 +545,8 @@ class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
             context['embed_error'] = "Metabase Embedding Key is not configured in .env."
             return context
 
-        # Open-source Metabase allows embedding dashboards or questions.
-        # Typically, a dashboard is used. Change this ID if your dashboard ID is different.
+        # 1. Expense Analysis Dashboard (ID: 2)
         dashboard_id = 2 
-        
         payload = {
             "resource": {"dashboard": dashboard_id},
             "params": {
@@ -557,13 +555,29 @@ class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
             "exp": int(time.time()) + (60 * 10)  # Link expires in 10 minutes
         }
         
+        # 2. AI Performance Telemetry Dashboard (ID: 3)
+        current_user_id = str(self.request.user.id)
+        current_user_id_int = int(self.request.user.id)
+        ai_payload = {
+            "resource": {"dashboard": 3},
+            "params": {
+                "user_id_": current_user_id,
+                "userid_(_native_number_)_": current_user_id_int
+            },
+            "exp": int(time.time()) + (60 * 15)  # 15 minute expiration
+        }
+
         try:
             token = jwt.encode(payload, secret_key, algorithm="HS256")
             context['iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{token}#bordered=false&titled=false&background=false"
+            
+            ai_token = jwt.encode(ai_payload, secret_key, algorithm="HS256")
+            context['ai_token'] = ai_token
         except Exception as e:
             context['embed_error'] = f"Failed to generate secure embed link: {str(e)}"
             
         context['metabase_builder_url'] = settings.METABASE_SITE_URL
+        context['metabase_site_url'] = settings.METABASE_SITE_URL
         return context
 
 

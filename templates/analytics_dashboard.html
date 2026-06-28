@@ -70,20 +70,56 @@
             {% endif %}
         </div>
 
-        <!-- Panel 2: AI Usage Placeholder -->
+        <!-- Panel 2: AI Usage Telemetry -->
         <div id="panel-ai" class="tab-panel" style="display: none;">
-            <div class="coming-soon-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 50px 24px; text-align: center; max-width: 800px; margin: 30px auto; box-shadow: var(--shadow-md); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                <div style="width: 70px; height: 70px; background: var(--accent-glow); color: var(--primary-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 2rem;">
-                    <i class="fas fa-robot"></i>
+            {% if embed_error %}
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; padding: 20px; border-radius: 12px; font-family: inherit; margin-top: 10px;">
+                    <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-exclamation-circle"></i> Configuration Error
+                    </h4>
+                    <p style="margin: 0; opacity: 0.9; line-height: 1.5;">{{ embed_error }}</p>
                 </div>
-                <h2 style="color: var(--text-main); font-size: 1.6rem; font-weight: 700; margin-bottom: 10px;">AI Usage Analytics</h2>
-                <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; max-width: 550px; margin: 0 auto 24px;">
-                    We are compiling telemetry data on transaction hash matching, model tokens efficiency, and categorization feedback loops. The AI usage dashboard will be available soon!
-                </p>
-                <button class="btn-metabase-builder" onclick="switchTab('expense')" style="background: var(--primary-accent); border: none; color: #fff; padding: 10px 24px; border-radius: var(--radius-md); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
-                    <i class="fas fa-chart-line" style="margin-right: 8px;"></i> Go Back to Expense Analysis
-                </button>
-            </div>
+            {% elif ai_token %}
+                <!-- Clean Seamless Web Component Container matching the Expense Analysis one -->
+                <div class="web-component-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1280px; display: flex; flex-direction: column; margin-top: 10px;">
+                    <!-- Metabase Web Component Scripts -->
+                    <script defer src="{{ metabase_site_url }}/app/embed.js"></script>
+                    <script>
+                    function defineMetabaseConfig(config) {
+                      window.metabaseConfig = config;
+                    }
+                    </script>
+                    <script>
+                      const initialTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                      defineMetabaseConfig({
+                        "theme": {
+                          "preset": initialTheme === 'dark' ? 'night' : 'light'
+                        },
+                        "isGuest": true,
+                        "instanceUrl": "{{ metabase_site_url }}"
+                      });
+                    </script>
+
+                    <!-- Inject the JWT Token from the Django View here -->
+                    <div style="width: 100%; min-height: 1280px;">
+                        <metabase-dashboard 
+                            token="{{ ai_token }}" 
+                            with-title="false" 
+                            with-downloads="false"
+                            style="width: 100%; height: 1280px; border: none; display: block; background: transparent;">
+                        </metabase-dashboard>
+                    </div>
+                </div>
+            {% else %}
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 20px; border-radius: 12px; font-family: inherit; margin-top: 10px;">
+                    <h4 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-info-circle"></i> Information
+                    </h4>
+                    <p style="margin: 0; opacity: 0.9; line-height: 1.5;">
+                        AI Telemetry Dashboard is loading. If this persists, verify your settings.
+                    </p>
+                </div>
+            {% endif %}
         </div>
 
     </div>
