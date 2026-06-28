@@ -93,7 +93,7 @@
                       const initialTheme = document.documentElement.getAttribute('data-theme') || 'light';
                       defineMetabaseConfig({
                         "theme": {
-                          "preset": initialTheme === 'dark' ? 'night' : 'light'
+                          "preset": initialTheme === 'dark' ? 'dark' : 'light'
                         },
                         "isGuest": true,
                         "instanceUrl": "{{ metabase_site_url }}"
@@ -229,7 +229,7 @@
         // 2. Web Component Theme Sync (AI Usage)
         const token = "{{ ai_token }}";
         if (token && window.metabaseConfig) {
-            const targetPreset = currentTheme === 'dark' ? 'night' : 'light';
+            const targetPreset = currentTheme === 'dark' ? 'dark' : 'light';
             if (window.metabaseConfig.theme.preset !== targetPreset) {
                 defineMetabaseConfig({
                     "theme": {
