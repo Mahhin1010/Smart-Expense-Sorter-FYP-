@@ -149,7 +149,7 @@
                         <td>{{ txn.date|date:"d M Y" }}</td>
                         <td>{{ txn.description|truncatechars:40 }}</td>
                         <td>{{ txn.merchant_name|default:"—" }}</td>
-                        <td style="font-family: monospace;">{{ txn.amount|floatformat:0 }}</td>
+                        <td style="font-family: monospace;">Rs. {{ txn.amount|floatformat:0 }}</td>
                         <td id="cat-cell-{{ txn.id }}">
                             {% if txn.category.name == 'Uncategorized' %}
                                 <select class="inline-select" onchange="updateCategory({{ txn.id }}, this.value, false)">
@@ -314,6 +314,26 @@
                 
                 // Highlight row
                 cell.parentElement.classList.add('row-updated');
+
+                // Dynamically update other inline-select options on the page if a new category was created
+                if (createNew) {
+                    const selects = document.querySelectorAll('.inline-select');
+                    selects.forEach(select => {
+                        let optionExists = false;
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].value === data.category_name) {
+                                optionExists = true;
+                                break;
+                            }
+                        }
+                        if (!optionExists) {
+                            const opt = document.createElement('option');
+                            opt.value = data.category_name;
+                            opt.textContent = data.category_name;
+                            select.appendChild(opt);
+                        }
+                    });
+                }
             } else {
                 alert('Error updating category: ' + data.message);
                 // Reset select if failed

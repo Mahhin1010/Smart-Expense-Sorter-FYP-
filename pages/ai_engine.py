@@ -564,8 +564,8 @@ class AICategorizationService:
         )
         category_name_set = set(category_names) | {'Uncategorized'}
 
-        # Build lookup dict
-        category_map = {c.name: c for c in Category.objects.filter(user=user)}
+        # Build lookup dict (lowercase keys for case-insensitive matching)
+        category_map = {c.name.lower(): c for c in Category.objects.filter(user=user)}
 
         # Step 2: Get uncategorized transactions
         uncategorized_qs = self.batcher.get_uncategorized(user)
@@ -660,9 +660,9 @@ class AICategorizationService:
                         if not txn:
                             continue
 
-                        cat_obj = category_map.get(classification.category_name)
+                        cat_obj = category_map.get(classification.category_name.lower()) if classification.category_name else None
                         if not cat_obj:
-                            cat_obj = category_map.get('Uncategorized', uncategorized_cat)
+                            cat_obj = category_map.get('uncategorized', uncategorized_cat)
 
                         txn.category = cat_obj
                         txn.ai_confidence = classification.confidence

@@ -71,7 +71,7 @@
                             <td>{{ tx.description|truncatechars:40 }}</td>
                             <td
                                 style="text-align: right; font-weight: 600; {% if tx.amount >= 0 %}color: var(--success-text);{% else %}color: var(--danger-text);{% endif %}">
-                                ${{ tx.amount|floatformat:2 }}
+                                Rs. {{ tx.amount|floatformat:2 }}
                             </td>
                             <td>{{ tx.notes|default:"-"|truncatechars:30 }}</td>
                             <td style="text-align: center;">

@@ -608,11 +608,10 @@ class UpdateTransactionCategoryAPI(LoginRequiredMixin, View):
             category_name = category_name.strip()
 
             if create_new:
-                # Get or create the category (ignoring case if possible, but exact match for now)
-                category, created = Category.objects.get_or_create(
-                    user=request.user, 
-                    name=category_name
-                )
+                # Get or create case-insensitively
+                category = Category.objects.filter(user=request.user, name__iexact=category_name).first()
+                if not category:
+                    category = Category.objects.create(user=request.user, name=category_name)
             else:
                 # Find the existing category
                 category = Category.objects.get(user=request.user, name=category_name)
