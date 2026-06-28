@@ -196,6 +196,9 @@ class TransactionUploadView(LoginRequiredMixin, View):
         
         else:
             # Handle Template CSV upload (generic)
+            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_uploads')
+            os.makedirs(temp_dir, exist_ok=True)
+
             for file_obj in files:
                 if not file_obj.name.endswith('.csv'):
                     messages.error(request, f"Skipped '{file_obj.name}': Unsupported file format. Please upload a .csv file.")
@@ -205,123 +208,41 @@ class TransactionUploadView(LoginRequiredMixin, View):
                     user=request.user,
                     filename=file_obj.name
                 )
+                temp_file_path = os.path.join(temp_dir, f"standard_{request.user.id}_{file_obj.name}")
 
                 try:
-                    file_content = file_obj.read().decode('utf-8-sig')
-                    csv_reader = csv.DictReader(io.StringIO(file_content))
-                    
-                    if not csv_reader.fieldnames:
-                        accumulated_stats['errors'].append(f"File '{file_obj.name}': Empty file or missing headers.")
-                        uploaded_file_record.delete()
-                        continue
+                    with open(temp_file_path, 'wb+') as destination:
+                        for chunk in file_obj.chunks():
+                            destination.write(chunk)
 
-                    actual_headers = [h.lower().strip() for h in csv_reader.fieldnames]
-                    
-                    description_aliases = {'description', 'raw_description'}
-                    has_description = bool(description_aliases & set(actual_headers))
-                    has_date = 'date' in actual_headers
-                    has_amount = 'amount' in actual_headers
-                    
-                    missing = []
-                    if not has_date:
-                        missing.append('Date')
-                    if not has_description:
-                        missing.append('Description')
-                    if not has_amount:
-                        missing.append('Amount')
-                    
-                    if missing:
-                        accumulated_stats['errors'].append(
-                            f"File '{file_obj.name}': Missing required column(s) {', '.join(missing)}."
-                        )
-                        uploaded_file_record.delete()
-                        continue
+                    from .parser import process_standard_csv
+                    records_created, skipped_duplicates, errors = process_standard_csv(
+                        temp_file_path, 
+                        request.user, 
+                        uploaded_file_record
+                    )
 
-                    rows = list(csv_reader)
-                    accumulated_stats['total_rows'] += len(rows)
-                    transactions_to_create = []
-                    
-                    for row_num, row in enumerate(rows, start=2):
-                        if not any(row.values()):
-                            continue
-                        
-                        row_normalized = {
-                            k.lower().strip(): v.strip() if v else '' 
-                            for k, v in row.items()
-                        }
-                        
-                        date_str = row_normalized.get('date', '')
-                        parsed_date = self._parse_date(date_str)
-                        if not parsed_date:
-                            accumulated_stats['errors'].append(
-                                f"File '{file_obj.name}', Row {row_num}: Invalid date '{date_str}'."
-                            )
-                            continue
-                        
-                        description = (
-                            row_normalized.get('description', '') or 
-                            row_normalized.get('raw_description', '')
-                        )
-                        if not description:
-                            accumulated_stats['errors'].append(f"File '{file_obj.name}', Row {row_num}: Description cannot be empty.")
-                            continue
-                        
-                        amount = self._parse_amount(row_normalized.get('amount', ''))
-                        if amount is None:
-                            accumulated_stats['errors'].append(
-                                f"File '{file_obj.name}', Row {row_num}: Invalid amount '{row_normalized.get('amount', '')}'."
-                            )
-                            continue
-                        
-                        merchant_name = (
-                            row_normalized.get('merchant_name', '') or 
-                            row_normalized.get('merchant', '') or None
-                        )
-                        transaction_type = (
-                            row_normalized.get('transaction_type', '') or 
-                            row_normalized.get('type', '') or None
-                        )
-                        notes = (
-                            row_normalized.get('notes', '') or 
-                            row_normalized.get('comments', '') or 
-                            row_normalized.get('memo', '') or None
-                        )
-                        
-                        raw_hash_string = f"{request.user.id}|{parsed_date}|{amount}|{description.strip().lower()}"
-                        tx_hash = hashlib.sha256(raw_hash_string.encode('utf-8')).hexdigest()
-                        
-                        if Transaction.objects.filter(user=request.user, tx_hash=tx_hash).exists():
-                            accumulated_stats['duplicates'] += 1
-                            continue
+                    accumulated_stats['successful'] += records_created
+                    accumulated_stats['duplicates'] += skipped_duplicates
+                    accumulated_stats['total_rows'] += (records_created + skipped_duplicates)
+                    accumulated_stats['errors'].extend(errors)
 
-                        transactions_to_create.append(Transaction(
-                            user=request.user,
-                            uploaded_file=uploaded_file_record,
-                            date=parsed_date,
-                            description=description[:255],
-                            amount=amount,
-                            merchant_name=merchant_name[:100] if merchant_name else None,
-                            transaction_type=transaction_type[:50] if transaction_type else None,
-                            notes=notes,
-                            tx_hash=tx_hash
-                        ))
-                        accumulated_stats['successful'] += 1
-                    
-                    created_transactions = []
-                    if transactions_to_create:
-                        created_transactions = Transaction.objects.bulk_create(transactions_to_create)
-                    
-                    imported_transaction_ids.extend([t.id for t in created_transactions])
+                    # Fetch created transaction IDs for preview
+                    recent_txs = Transaction.objects.filter(
+                        user=request.user, 
+                        uploaded_file=uploaded_file_record
+                    ).values_list('id', flat=True)
+                    imported_transaction_ids.extend(list(recent_txs))
 
-                    if len(transactions_to_create) == 0:
+                    if records_created == 0 and skipped_duplicates > 0:
                         uploaded_file_record.delete()
 
-                except UnicodeDecodeError:
-                    uploaded_file_record.delete()
-                    accumulated_stats['errors'].append(f"File '{file_obj.name}': Unable to read file (encoding error).")
                 except Exception as e:
                     uploaded_file_record.delete()
                     accumulated_stats['errors'].append(f"File '{file_obj.name}': {str(e)}")
+                finally:
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
 
             request.session['imported_transaction_ids'] = imported_transaction_ids
             request.session['upload_stats'] = accumulated_stats
@@ -343,37 +264,6 @@ class TransactionUploadView(LoginRequiredMixin, View):
                     messages.error(request, err)
 
             return redirect('upload_transactions')
-
-    def _parse_date(self, date_str):
-        """Parse date string trying multiple formats including datetime."""
-        date_formats = [
-            '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y',
-            '%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S',
-            '%d/%m/%Y %H:%M', '%d/%m/%Y %H:%M:%S',
-        ]
-        for fmt in date_formats:
-            try:
-                return datetime.datetime.strptime(date_str, fmt).date()
-            except ValueError:
-                continue
-        return None
-    
-    def _parse_amount(self, amount_str):
-        """Parse amount string, handling currency symbols including PKR."""
-        cleaned = (amount_str
-                   .replace(',', '')
-                   .replace('$', '')
-                   .replace('£', '')
-                   .replace('€', '')
-                   .replace('₹', '')
-                   .replace('PKR', '')
-                   .replace('Rs.', '')
-                   .replace('Rs', '')
-                   .strip())
-        try:
-            return Decimal(cleaned)
-        except (InvalidOperation, ValueError):
-            return None
 
 
 
