@@ -126,6 +126,19 @@
 </div>
 
 <style>
+    /* Premium Panel Animation */
+    .tab-panel {
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        display: none;
+    }
+    .tab-panel.active {
+        display: flex !important;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
     /* Tab Styling */
     .analytics-tab {
         background: none;
@@ -175,45 +188,78 @@
 </style>
 
 <script>
-    // Tab switching logic
+    // Tab switching logic with smooth transition
     function switchTab(tabName) {
         document.querySelectorAll('.analytics-tab').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(panel => panel.style.display = 'none');
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+            panel.style.display = 'none';
+        });
         
-        if (tabName === 'expense') {
-            document.getElementById('tab-expense').classList.add('active');
-            document.getElementById('panel-expense').style.display = 'block';
-        } else if (tabName === 'ai') {
-            document.getElementById('tab-ai').classList.add('active');
-            document.getElementById('panel-ai').style.display = 'block';
-        }
+        const activeTab = tabName === 'expense' ? 'tab-expense' : 'tab-ai';
+        const activePanel = tabName === 'expense' ? 'panel-expense' : 'panel-ai';
+        
+        document.getElementById(activeTab).classList.add('active');
+        const panel = document.getElementById(activePanel);
+        panel.style.display = 'flex';
+        
+        // Force reflow
+        void panel.offsetWidth;
+        panel.classList.add('active');
     }
 
-    // Dynamic Metabase theme synchronization
+    // Dynamic Metabase theme synchronization for both iframe and web component
     function syncMetabaseTheme() {
-        const iframe = document.getElementById('metabase-iframe');
-        if (!iframe) return;
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        let src = iframe.src;
-        if (!src) return;
         
-        const baseUrl = src.split('#')[0];
-        let hashParams = 'bordered=false&titled=false&background=false';
-        if (currentTheme === 'dark') {
-            hashParams += '&theme=night';
+        // 1. Iframe Theme Sync (Expense)
+        const iframe = document.getElementById('metabase-iframe');
+        if (iframe && iframe.src) {
+            const baseUrl = iframe.src.split('#')[0];
+            let hashParams = 'bordered=false&titled=false&background=false';
+            if (currentTheme === 'dark') {
+                hashParams += '&theme=night';
+            }
+            const targetUrl = `${baseUrl}#${hashParams}`;
+            if (iframe.src !== targetUrl) {
+                iframe.src = targetUrl;
+            }
         }
         
-        const targetUrl = `${baseUrl}#${hashParams}`;
-        if (iframe.src !== targetUrl) {
-            iframe.src = targetUrl;
+        // 2. Web Component Theme Sync (AI Usage)
+        const token = "{{ ai_token }}";
+        if (token && window.metabaseConfig) {
+            const targetPreset = currentTheme === 'dark' ? 'night' : 'light';
+            if (window.metabaseConfig.theme.preset !== targetPreset) {
+                defineMetabaseConfig({
+                    "theme": {
+                        "preset": targetPreset
+                    },
+                    "isGuest": true,
+                    "instanceUrl": "{{ metabase_site_url }}"
+                });
+                
+                // Force redraw by replacing component in DOM
+                const dashboard = document.querySelector('metabase-dashboard');
+                if (dashboard) {
+                    const newDashboard = document.createElement('metabase-dashboard');
+                    newDashboard.setAttribute('token', token);
+                    newDashboard.setAttribute('with-title', 'false');
+                    newDashboard.setAttribute('with-downloads', 'false');
+                    newDashboard.style.cssText = dashboard.style.cssText;
+                    
+                    const parent = dashboard.parentNode;
+                    parent.replaceChild(newDashboard, dashboard);
+                }
+            }
         }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Run on page load
+        // Run theme sync initially
         syncMetabaseTheme();
         
-        // Listen to dynamic HTML theme toggle updates
+        // Observe html data-theme updates to switch styling in real-time
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.attributeName === 'data-theme') {
@@ -222,6 +268,12 @@
             });
         });
         observer.observe(document.documentElement, { attributes: true });
+        
+        // Trigger initial active panel
+        const initialPanel = document.querySelector('.tab-panel.active');
+        if (initialPanel) {
+            initialPanel.style.display = 'flex';
+        }
     });
 </script>
 {% endblock %}
