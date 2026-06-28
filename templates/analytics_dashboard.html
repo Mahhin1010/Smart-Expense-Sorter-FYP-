@@ -79,39 +79,19 @@
                     </h4>
                     <p style="margin: 0; opacity: 0.9; line-height: 1.5;">{{ embed_error }}</p>
                 </div>
-            {% elif ai_token %}
-                <!-- Clean Seamless Web Component Container matching the Expense Analysis one -->
-                <div class="web-component-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1280px; display: flex; flex-direction: column; margin-top: 10px;">
-                    <!-- Metabase Web Component Scripts -->
-                    <script defer src="{{ metabase_site_url }}/app/embed.js"></script>
-                    <script>
-                    function defineMetabaseConfig(config) {
-                      window.metabaseConfig = config;
-                    }
-                    </script>
-                    <script>
-                      const initialTheme = document.documentElement.getAttribute('data-theme') || 'light';
-                      defineMetabaseConfig({
-                        "theme": {
-                          "preset": initialTheme === 'dark' ? 'dark' : 'light',
-                          "colors": {
-                            "background": "transparent"
-                          }
-                        },
-                        "isGuest": true,
-                        "instanceUrl": "{{ metabase_site_url }}"
-                      });
-                    </script>
-
-                    <!-- Inject the JWT Token from the Django View here -->
-                    <div style="width: 100%; min-height: 1280px;">
-                        <metabase-dashboard 
-                            token="{{ ai_token }}" 
-                            with-title="false" 
-                            with-downloads="false"
-                            style="width: 100%; height: 1280px; border: none; display: block; background: transparent;">
-                        </metabase-dashboard>
-                    </div>
+            {% elif ai_iframe_url %}
+                <!-- Clean Seamless Iframe Container (Matching the Expense Analysis one exactly) -->
+                <div class="iframe-container" style="background: transparent; border: none; border-radius: 0; overflow: hidden; width: 100%; min-height: 1280px; display: flex; flex-direction: column;">
+                    <iframe
+                        id="metabase-ai-iframe"
+                        src="{{ ai_iframe_url }}"
+                        frameborder="0"
+                        width="100%"
+                        height="1280px"
+                        style="border: none; background: transparent; flex: 1; min-height: 1280px; overflow: hidden; margin-top: 10px;"
+                        allowtransparency
+                        scrolling="no"
+                    ></iframe>
                 </div>
             {% else %}
                 <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 20px; border-radius: 12px; font-family: inherit; margin-top: 10px;">
@@ -211,54 +191,25 @@
         panel.classList.add('active');
     }
 
-    // Dynamic Metabase theme synchronization for both iframe and web component
+    // Dynamic Metabase theme synchronization for both Expense and AI iframes
     function syncMetabaseTheme() {
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const iframes = ['metabase-iframe', 'metabase-ai-iframe'];
         
-        // 1. Iframe Theme Sync (Expense)
-        const iframe = document.getElementById('metabase-iframe');
-        if (iframe && iframe.src) {
-            const baseUrl = iframe.src.split('#')[0];
-            let hashParams = 'bordered=false&titled=false&background=false';
-            if (currentTheme === 'dark') {
-                hashParams += '&theme=night';
-            }
-            const targetUrl = `${baseUrl}#${hashParams}`;
-            if (iframe.src !== targetUrl) {
-                iframe.src = targetUrl;
-            }
-        }
-        
-        // 2. Web Component Theme Sync (AI Usage)
-        const token = "{{ ai_token }}";
-        if (token && window.metabaseConfig) {
-            const targetPreset = currentTheme === 'dark' ? 'dark' : 'light';
-            if (window.metabaseConfig.theme.preset !== targetPreset) {
-                defineMetabaseConfig({
-                    "theme": {
-                        "preset": targetPreset,
-                        "colors": {
-                            "background": "transparent"
-                        }
-                    },
-                    "isGuest": true,
-                    "instanceUrl": "{{ metabase_site_url }}"
-                });
-                
-                // Force redraw by replacing component in DOM
-                const dashboard = document.querySelector('metabase-dashboard');
-                if (dashboard) {
-                    const newDashboard = document.createElement('metabase-dashboard');
-                    newDashboard.setAttribute('token', token);
-                    newDashboard.setAttribute('with-title', 'false');
-                    newDashboard.setAttribute('with-downloads', 'false');
-                    newDashboard.style.cssText = dashboard.style.cssText;
-                    
-                    const parent = dashboard.parentNode;
-                    parent.replaceChild(newDashboard, dashboard);
+        iframes.forEach(id => {
+            const iframe = document.getElementById(id);
+            if (iframe && iframe.src) {
+                const baseUrl = iframe.src.split('#')[0];
+                let hashParams = 'bordered=false&titled=false&background=false';
+                if (currentTheme === 'dark') {
+                    hashParams += '&theme=night';
+                }
+                const targetUrl = `${baseUrl}#${hashParams}`;
+                if (iframe.src !== targetUrl) {
+                    iframe.src = targetUrl;
                 }
             }
-        }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {

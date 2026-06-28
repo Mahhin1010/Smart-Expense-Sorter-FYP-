@@ -572,7 +572,7 @@ class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
             context['iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{token}#bordered=false&titled=false&background=false"
             
             ai_token = jwt.encode(ai_payload, secret_key, algorithm="HS256")
-            context['ai_token'] = ai_token
+            context['ai_iframe_url'] = f"{settings.METABASE_SITE_URL}/embed/dashboard/{ai_token}#bordered=false&titled=false&background=false"
         except Exception as e:
             context['embed_error'] = f"Failed to generate secure embed link: {str(e)}"
             
