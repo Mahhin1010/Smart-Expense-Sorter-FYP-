@@ -236,3 +236,6 @@ JAZZMIN_UI_TWEAKS = {
         "success": "btn-success"
     }
 }
+
+# Console Email Backend for local Password Reset development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
