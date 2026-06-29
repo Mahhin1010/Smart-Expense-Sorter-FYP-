@@ -1,17 +1,40 @@
-# Django defaults
-*.pyc
-__pycache__
+# Python / Django
+*.py[cod]
+*$py.class
+__pycache__/
+*.sqlite3
 db.sqlite3
+staticfiles/
+media/
+temp_uploads/
+*.log
 
-# Virtual Environment (Very important to ignore!)
+# Virtual environments
+.venv/
 venv/
 env/
+ENV/
 
-# Environment variables (Safety)
+# Local environment and secrets
 .env
+.env.*
+!.env.example
 
-# Metabase files
+# Metabase local runtime files
 metabase.jar
-metabase.db.mv.db
-metabase.db.trace.db
-plugins/
+metabase.db.*
+plugins/
+
+# Local development scratch areas
+01_Project_Documentation/
+Creation Documentations/
+CSV Upload Test/
+RidaTestai_transactions.csv
+test_ai_transactions.csv
+myproject/static/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

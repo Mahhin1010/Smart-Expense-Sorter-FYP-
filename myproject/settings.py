@@ -33,7 +33,7 @@ METABASE_EMBEDDING_SECRET_KEY = os.getenv('METABASE_EMBEDDING_SECRET_KEY', '')
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-(1^d$o^@!%f)4)*yx%v1ozt##_fe2v1rg5os)_6m+sf$p5cx!9')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'unsafe-dev-secret-key-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
@@ -157,7 +157,11 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
 
-# Add this for development
+# Uploaded files and temporary import files
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Collected static output for deployment
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 

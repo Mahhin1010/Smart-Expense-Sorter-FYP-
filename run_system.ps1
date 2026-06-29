@@ -4,22 +4,24 @@ Write-Host "  Starting Smart Transaction Sorter & Analytics System    " -Foregro
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Start Metabase Node
-Write-Host "[+] Locating Java 21 for Metabase..." -ForegroundColor Yellow
-$javaPath = "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe"
-if (Test-Path $javaPath) {
-    Write-Host "    Found JDK 21 at: $javaPath" -ForegroundColor Green
-    $javaCmd = $javaPath
-} else {
-    Write-Host "    JDK 21 not found at target Adoptium path. Falling back to default 'java'..." -ForegroundColor Yellow
-    $javaCmd = "java"
+Write-Host "[+] Locating Java for Metabase..." -ForegroundColor Yellow
+$javaCmd = "java"
+if ($env:JAVA_HOME) {
+    $javaFromHome = Join-Path $env:JAVA_HOME "bin\java.exe"
+    if (Test-Path $javaFromHome) {
+        $javaCmd = $javaFromHome
+        Write-Host "    Using JAVA_HOME: $javaCmd" -ForegroundColor Green
+    }
 }
 
 Write-Host "[+] Launching Metabase BI server (Port 3000)..." -ForegroundColor Yellow
-if (Test-Path "metabase.jar") {
-    Start-Process -FilePath $javaCmd -ArgumentList "-jar metabase.jar" -NoNewWindow
+$metabaseJar = if ($env:METABASE_JAR_PATH) { $env:METABASE_JAR_PATH } else { "metabase.jar" }
+if (Test-Path $metabaseJar) {
+    Start-Process -FilePath $javaCmd -ArgumentList "-jar `"$metabaseJar`"" -NoNewWindow
     Write-Host "    Metabase starting in background..." -ForegroundColor Green
 } else {
-    Write-Host "    [!] metabase.jar not found in the root directory. Skipping Metabase." -ForegroundColor Red
+    Write-Host "    [!] Metabase jar not found. Set METABASE_JAR_PATH or place metabase.jar in the project root." -ForegroundColor Yellow
+    Write-Host "        The jar and local Metabase database are intentionally not committed to Git." -ForegroundColor Yellow
 }
 
 # 2. Setup Python environment and Database migrations

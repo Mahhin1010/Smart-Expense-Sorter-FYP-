@@ -1,0 +1,13 @@
+Date,Description,Amount,Type
+2026-05-01 10:00:00,"Incoming fund transfer from ProForecast\nStandard Chartered-2231|Transaction ID SCB9981122",250000.00,IBFT In
+2026-05-03 14:22:00,"Paid to Malik Properties Islamabad PK|Visa 1810",-65000.00,POS
+2026-05-05 19:30:00,"Paid to Al-Fatah Islamabad PK|Visa 1810",-4500.00,POS
+2026-05-06 13:15:00,"Paid to Savour Foods Rawalpindi PK|Visa 1810",-1250.00,POS
+2026-05-08 21:00:00,"Paid to Monal Restaurant Islamabad PK|Visa 1810",-4200.00,POS
+2026-05-10 16:40:00,"Paid to Netflix Subscription PK|Visa 1810",-1500.00,POS
+2026-05-12 08:30:00,"Paid to Iron Core Fitness Islamabad PK|Visa 1810",-6000.00,POS
+2026-05-15 17:45:00,"Paid to Uber Ride PK|Visa 1810",-850.00,POS
+2026-05-18 11:00:00,"Paid to Outfitters Islamabad PK|Visa 1810",-5500.00,POS
+2026-05-22 15:20:00,"Money sent to Amna|(amna.k)\nNayaPay 1810",-3000.00,Peer to Peer
+2026-05-25 12:00:00,"Bill Paid for IESCO\nConsumer No. 112233445566|Transaction ID IESCO44321",-9400.00,Bill Payment
+2026-05-28 14:00:00,"Paid to Metro Cash & Carry Islamabad PK|Visa 1810",-14200.00,POS

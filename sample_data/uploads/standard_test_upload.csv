@@ -1,0 +1,31 @@
+Date,Description,Amount,Merchant,Type,Notes,Transaction ID
+2026-06-01,Monthly Salary Credit,150000.00,Employer Corp,Salary,Direct Deposit,TXN10001
+2026-06-02,Weekly Grocery Shopping,-8450.00,Al-Fatah Supermarket,POS,Visa Debit,TXN10002
+2026-06-03,Electricity Bill Payment,-12450.00,K-Electric,Bill Payment,Consumer No 94812,TXN10003
+2026-06-04,Coffee with friends,-1250.00,Second Cup,POS,Card suffix 1234,TXN10004
+2026-06-05,Fuel Refill,-4500.00,Total Parco,Fuel,Fuel for Sedan,TXN10005
+2026-06-06,Online Bookstore,-2300.00,Liberty Books,E-Commerce,Online Purchase,TXN10006
+2026-06-07,Freelance Gig Income,35000.00,Upwork Escrow,Transfer In,Raast Transfer,TXN10007
+2026-06-08,Gym Membership Subscription,-6000.00,Structure Health,Subscription,Monthly Fee,TXN10008
+2026-06-09,Pharmacy Medicine Purchase,-1850.00,Servaid Pharmacy,POS,Visa Card,TXN10009
+2026-06-10,Netflix Monthly Subscription,-1500.00,Netflix,Subscription,Auto-debit,TXN10010
+2026-06-11,Lunch at Restaurant,-3200.00,Kolachi,Dining,Family Dinner,TXN10011
+2026-06-12,Internet Bill Payment,-4200.00,StormFiber,Bill Payment,Consumer No 31102,TXN10012
+2026-06-13,Mobile Top-up,-1000.00,Zong Telecom,Mobile Top-up,Phone 03123456789,TXN10013
+2026-06-14,Weekend Getaway Stay,-18000.00,Booking.com,E-Commerce,Hotel Reservation,TXN10014
+2026-06-15,ATM Cash Withdrawal,-5000.00,HBL ATM,Withdrawal,Card suffix 3968,TXN10015
+2026-06-16,Transfer to Friend,-1500.00,Ali Khan,Transfer Out,IBFT,TXN10016
+2026-06-17,Cashback Reward,450.00,NayaPay,Cashback,Promotional Reward,TXN10017
+2026-06-18,New Running Shoes,-12500.00,Nike Store,Shopping,Visa Debit,TXN10018
+2026-06-19,Dentist Appointment,-4000.00,Dental Clinic,Medical,Consultation Fee,TXN10019
+2026-06-20,Ride-Sharing Fare,-850.00,Yango,Transport,Debit Card,TXN10020
+2026-06-21,Refund from Store,2300.00,Liberty Books,Refund,Return Credit,TXN10021
+2026-06-22,Gas Bill Payment,-3500.00,Sui Southern Gas,Bill Payment,Consumer No 84920,TXN10022
+2026-06-23,Office Lunch delivery,-1400.00,Foodpanda,Food Delivery,Lunch Order,TXN10023
+2026-06-24,Online Course purchase,-6500.00,Udemy,Education,Python Course,TXN10024
+2026-06-25,Water Bottle delivery,-450.00,Nestle Pure Life,Groceries,Drinking Water,TXN10025
+2026-06-26,Stock Dividend payout,12500.00,CDS Pakistan,Investment,Dividend Credit,TXN10026
+2026-06-27,Software Subscription,-3800.00,Adobe Systems,Subscription,Creative Cloud,TXN10027
+2026-06-28,Airport Parking Fee,-300.00,CAA Parking,Transport,Cash paid,TXN10028
+2026-06-29,Charitable Donation,-5000.00,Edhi Foundation,Donation,Zakat/Sadqah,TXN10029
+2026-06-30,Shared Dinner reimbursement,1800.00,Sara Ahmed,Transfer In,P2P Transfer,TXN10030
