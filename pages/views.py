@@ -36,9 +36,10 @@ class HomeView(TemplateView):
         user = self.request.user
         category_count = Category.objects.filter(user=user).count()
         total_count = Transaction.objects.filter(user=user).count()
+        from django.db.models import Q
         uncategorized_count = Transaction.objects.filter(
-            user=user,
-            category__isnull=True
+            Q(category__isnull=True) | Q(category__name='Uncategorized'),
+            user=user
         ).count()
         categorized_count = total_count - uncategorized_count
 
@@ -363,17 +364,14 @@ class AISortingView(LoginRequiredMixin, View):
 
     def get(self, request):
         """Display the AI sorting page with current transaction stats."""
+        from django.db.models import Q
         uncategorized_count = Transaction.objects.filter(
-            user=request.user,
-            category__isnull=True
+            Q(category__isnull=True) | Q(category__name='Uncategorized'),
+            user=request.user
         ).count()
 
         total_count = Transaction.objects.filter(user=request.user).count()
-
-        categorized_count = Transaction.objects.filter(
-            user=request.user,
-            category__isnull=False
-        ).count()
+        categorized_count = total_count - uncategorized_count
 
         category_count = Category.objects.filter(user=request.user).count()
 
@@ -435,9 +433,10 @@ class AISortingView(LoginRequiredMixin, View):
             )
             return redirect('ai_sorting')
 
+        from django.db.models import Q
         uncategorized_count = Transaction.objects.filter(
-            user=request.user,
-            category__isnull=True
+            Q(category__isnull=True) | Q(category__name='Uncategorized'),
+            user=request.user
         ).count()
 
         if uncategorized_count == 0:

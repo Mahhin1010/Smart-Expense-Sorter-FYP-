@@ -104,10 +104,11 @@ class TransactionBatcher:
         Return QuerySet of transactions without an assigned category.
         Uses select_related to avoid N+1 queries if category is accessed.
         """
+        from django.db.models import Q
         from .models import Transaction
         return Transaction.objects.filter(
-            user=user,
-            category__isnull=True
+            Q(category__isnull=True) | Q(category__name='Uncategorized'),
+            user=user
         ).order_by('date')
 
     @classmethod
