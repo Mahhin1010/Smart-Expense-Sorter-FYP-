@@ -33,6 +33,42 @@ class PagesSystemTests(TestCase):
         # Setup standard category for User A
         self.cat_food_a = Category.objects.create(user=self.user_a, name="Food")
 
+    def test_home_uses_public_landing_for_anonymous_users(self):
+        """Anonymous visitors should still see the public marketing homepage."""
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'home.html')
+        self.assertContains(response, "Start Free Trial")
+
+    def test_home_uses_dashboard_for_authenticated_users(self):
+        """Logged-in users should see an operational dashboard, not the landing page."""
+        Transaction.objects.create(
+            user=self.user_a,
+            category=self.cat_food_a,
+            date=datetime.date(2026, 2, 1),
+            description="Weekly Grocery",
+            amount=Decimal("-5000")
+        )
+        Transaction.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 2, 2),
+            description="Pending Merchant",
+            amount=Decimal("-1200")
+        )
+
+        self.client.login(username="usera", password="PasswordA123!")
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard_home.html')
+        self.assertContains(response, "Welcome back, usera")
+        self.assertContains(response, "AI sorting is ready")
+        self.assertNotContains(response, "Start Free Trial")
+        self.assertEqual(response.context['total_count'], 2)
+        self.assertEqual(response.context['categorized_count'], 1)
+        self.assertEqual(response.context['uncategorized_count'], 1)
+
     def test_tc_06_create_category(self):
         """TC-06: Authenticated user can create a category."""
         self.client.login(username="usera", password="PasswordA123!")
@@ -612,6 +648,5 @@ class PagesSystemTests(TestCase):
         self.assertEqual(log.input_tokens, 0)
         self.assertEqual(log.output_tokens, 0)
         self.assertEqual(float(log.calculated_cost_usd), 0.0)
-
 
 

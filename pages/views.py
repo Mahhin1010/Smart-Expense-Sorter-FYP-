@@ -9,21 +9,102 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView, FormView, View
 from django.db import IntegrityError
 from django.contrib import messages
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 import json
 
-from .models import Category, Transaction
+from .models import Category, Transaction, UploadedFile
 from .forms import TransactionUploadForm
 
-# --- 1. UPDATED 'home_view' for your Smart Sorter project ---
-# --- 1. UPDATED 'home_view' for your Smart Sorter project ---
-# --- 1. UPDATED 'HomeView' (CBV) ---
 class HomeView(TemplateView):
     """
-    Renders the landing page using a Class-Based View (TemplateView).
-    Strictly follows OOP principles.
+    Shows a public landing page to visitors and a lightweight workflow
+    dashboard to authenticated users.
     """
     template_name = 'home.html'
+
+    def get_template_names(self):
+        if self.request.user.is_authenticated:
+            return ['dashboard_home.html']
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if not self.request.user.is_authenticated:
+            return context
+
+        user = self.request.user
+        category_count = Category.objects.filter(user=user).count()
+        total_count = Transaction.objects.filter(user=user).count()
+        uncategorized_count = Transaction.objects.filter(
+            user=user,
+            category__isnull=True
+        ).count()
+        categorized_count = total_count - uncategorized_count
+
+        if category_count == 0:
+            next_action = {
+                'title': 'Start with categories',
+                'description': 'Create a few spending labels so AI sorting has a clean target list.',
+                'url_name': 'manage_categories',
+                'label': 'Create Categories',
+                'icon': 'fa-tags',
+            }
+        elif total_count == 0:
+            next_action = {
+                'title': 'Upload your first statement',
+                'description': 'Import a NayaPay statement or the standard CSV template to begin.',
+                'url_name': 'upload_transactions',
+                'label': 'Upload CSV',
+                'icon': 'fa-file-import',
+            }
+        elif uncategorized_count > 0:
+            next_action = {
+                'title': 'AI sorting is ready',
+                'description': f'{uncategorized_count} transaction(s) are waiting for categorization.',
+                'url_name': 'ai_sorting',
+                'label': 'Run AI Sorting',
+                'icon': 'fa-robot',
+            }
+        else:
+            next_action = {
+                'title': 'Your data is ready for analysis',
+                'description': 'All imported transactions are categorized. Review trends in analytics.',
+                'url_name': 'analytics_dashboard',
+                'label': 'View Analytics',
+                'icon': 'fa-chart-pie',
+            }
+
+        profile = getattr(user, 'profile', None)
+        if profile is None:
+            from accounts.models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+
+        provider_display = profile.get_ai_provider_display()
+        provider_key_map = {
+            'gemini': (profile.gemini_api_key, getattr(settings, 'GEMINI_API_KEY', None), profile.gemini_model),
+            'openai': (profile.openai_api_key, getattr(settings, 'OPENAI_API_KEY', None), profile.openai_model),
+            'deepseek': (profile.deepseek_api_key, getattr(settings, 'DEEPSEEK_API_KEY', None), profile.deepseek_model),
+        }
+        user_key, fallback_key, selected_model = provider_key_map.get(
+            profile.ai_provider,
+            (None, None, 'Unknown model')
+        )
+
+        context.update({
+            'category_count': category_count,
+            'total_count': total_count,
+            'categorized_count': categorized_count,
+            'uncategorized_count': uncategorized_count,
+            'recent_uploads': UploadedFile.objects.filter(user=user).order_by('-upload_date')[:3],
+            'recent_transactions': Transaction.objects.filter(user=user).select_related('category')[:5],
+            'latest_ai_log': user.ai_telemetry_logs.first(),
+            'next_action': next_action,
+            'provider_display': provider_display,
+            'selected_model': selected_model,
+            'ai_key_configured': bool(user_key or fallback_key),
+        })
+        return context
 
 
 

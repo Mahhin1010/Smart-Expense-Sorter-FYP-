@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Smart Sorter{% endblock %}
+
+{% block content %}
+<div class="dashboard-home">
+    <section class="home-hero-panel">
+        <div>
+            <p class="home-kicker">Transaction workspace</p>
+            <h1>Welcome back, {% firstof user.first_name user.username %}</h1>
+            <p>Manage categories, upload statements, run AI sorting, and open analytics from one calm place.</p>
+        </div>
+        <div class="home-actions">
+            <a href="{% url 'upload_transactions' %}" class="btn-primary-custom">
+                <i class="fas fa-file-import"></i>
+                Upload CSV
+            </a>
+            <a href="{% url 'ai_sorting' %}" class="btn-outline-custom">
+                <i class="fas fa-robot"></i>
+                AI Sorting
+            </a>
+        </div>
+    </section>
+
+    <section class="next-action-panel">
+        <div class="next-action-icon">
+            <i class="fas {{ next_action.icon }}"></i>
+        </div>
+        <div>
+            <p class="home-kicker">Recommended next step</p>
+            <h2>{{ next_action.title }}</h2>
+            <p>{{ next_action.description }}</p>
+        </div>
+        <a href="{% url next_action.url_name %}" class="btn-primary-custom next-action-button">
+            {{ next_action.label }}
+        </a>
+    </section>
+
+    <section class="home-stats-grid" aria-label="Workspace summary">
+        <article class="home-stat-card">
+            <span>Total Transactions</span>
+            <strong>{{ total_count }}</strong>
+        </article>
+        <article class="home-stat-card">
+            <span>Categorized</span>
+            <strong>{{ categorized_count }}</strong>
+        </article>
+        <article class="home-stat-card">
+            <span>Needs Review</span>
+            <strong>{{ uncategorized_count }}</strong>
+        </article>
+        <article class="home-stat-card">
+            <span>Categories</span>
+            <strong>{{ category_count }}</strong>
+        </article>
+    </section>
+
+    <section class="home-main-grid">
+        <div class="home-section">
+            <div class="section-heading-row">
+                <div>
+                    <p class="home-kicker">Workflow</p>
+                    <h2>Your sorting path</h2>
+                </div>
+            </div>
+
+            <div class="workflow-list">
+                <a href="{% url 'manage_categories' %}" class="workflow-item">
+                    <span class="workflow-icon"><i class="fas fa-tags"></i></span>
+                    <span>
+                        <strong>Categories</strong>
+                        <small>{{ category_count }} ready</small>
+                    </span>
+                </a>
+                <a href="{% url 'upload_transactions' %}" class="workflow-item">
+                    <span class="workflow-icon"><i class="fas fa-cloud-upload-alt"></i></span>
+                    <span>
+                        <strong>Upload CSV</strong>
+                        <small>{{ total_count }} imported</small>
+                    </span>
+                </a>
+                <a href="{% url 'ai_sorting' %}" class="workflow-item">
+                    <span class="workflow-icon"><i class="fas fa-robot"></i></span>
+                    <span>
+                        <strong>AI Sorting</strong>
+                        <small>{{ uncategorized_count }} pending</small>
+                    </span>
+                </a>
+                <a href="{% url 'analytics_dashboard' %}" class="workflow-item">
+                    <span class="workflow-icon"><i class="fas fa-chart-line"></i></span>
+                    <span>
+                        <strong>Analytics</strong>
+                        <small>{% if total_count %}Ready to open{% else %}Waiting for data{% endif %}</small>
+                    </span>
+                </a>
+            </div>
+        </div>
+
+        <aside class="home-section">
+            <p class="home-kicker">AI configuration</p>
+            <h2>{{ provider_display }}</h2>
+            <p class="home-muted-line">{{ selected_model }}</p>
+            <div class="status-pill {% if ai_key_configured %}status-ready{% else %}status-attention{% endif %}">
+                <i class="fas {% if ai_key_configured %}fa-check-circle{% else %}fa-circle-exclamation{% endif %}"></i>
+                {% if ai_key_configured %}Ready for sorting{% else %}API key needed{% endif %}
+            </div>
+            <a href="{% url 'user_settings' %}" class="home-inline-link">
+                Open Settings
+                <i class="fas fa-arrow-right"></i>
+            </a>
+        </aside>
+    </section>
+
+    <section class="home-main-grid bottom-grid">
+        <div class="home-section">
+            <div class="section-heading-row">
+                <div>
+                    <p class="home-kicker">Recent activity</p>
+                    <h2>What changed lately</h2>
+                </div>
+            </div>
+
+            <div class="activity-list">
+                {% if recent_uploads %}
+                {% for upload in recent_uploads %}
+                <div class="activity-item">
+                    <i class="fas fa-file-csv"></i>
+                    <span>
+                        <strong>{{ upload.filename|truncatechars:42 }}</strong>
+                        <small>Uploaded {{ upload.upload_date|date:"M d, Y" }}</small>
+                    </span>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if latest_ai_log %}
+                <div class="activity-item">
+                    <i class="fas fa-robot"></i>
+                    <span>
+                        <strong>AI sorted {{ latest_ai_log.batch_size }} row{{ latest_ai_log.batch_size|pluralize }}</strong>
+                        <small>{{ latest_ai_log.provider|title }} on {{ latest_ai_log.created_at|date:"M d, Y" }}</small>
+                    </span>
+                </div>
+                {% endif %}
+
+                {% if not recent_uploads and not latest_ai_log %}
+                <div class="home-empty-state">
+                    <i class="fas fa-clock-rotate-left"></i>
+                    <p>No activity yet. Your uploads and AI runs will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="home-section">
+            <p class="home-kicker">Recent transactions</p>
+            <h2>Latest rows</h2>
+            <div class="transaction-mini-list">
+                {% for transaction in recent_transactions %}
+                <div class="transaction-mini-item">
+                    <span>
+                        <strong>{{ transaction.description|truncatechars:38 }}</strong>
+                        <small>{{ transaction.date|date:"M d, Y" }}{% if transaction.category %} - {{ transaction.category.name }}{% endif %}</small>
+                    </span>
+                    <span class="transaction-amount">Rs. {{ transaction.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <div class="home-empty-state">
+                    <i class="fas fa-receipt"></i>
+                    <p>No transactions imported yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
