@@ -659,3 +659,41 @@ class ClearAllTransactionsView(LoginRequiredMixin, View):
             
         return redirect('upload_transactions')
 
+
+class TransactionHistoryView(LoginRequiredMixin, TemplateView):
+    template_name = 'transaction_history.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Query all user transactions
+        tx_qs = Transaction.objects.filter(user=user).select_related('category')
+
+        # Filter by search
+        search_query = self.request.GET.get('q', '')
+        if search_query:
+            tx_qs = tx_qs.filter(description__icontains=search_query)
+
+        # Sort order
+        sort_order = self.request.GET.get('sort', 'date_desc')
+        if sort_order == 'amount_desc':
+            tx_qs = tx_qs.order_by('-amount')
+        elif sort_order == 'amount_asc':
+            tx_qs = tx_qs.order_by('amount')
+        elif sort_order == 'date_asc':
+            tx_qs = tx_qs.order_by('date', 'created_at')
+        else: # date_desc
+            tx_qs = tx_qs.order_by('-date', '-created_at')
+
+        # Limit to 500 rows for high-performance rendering
+        transactions = list(tx_qs[:500])
+        user_categories = Category.objects.filter(user=user).order_by('name')
+
+        context.update({
+            'transactions': transactions,
+            'user_categories': user_categories,
+            'search_query': search_query,
+            'sort_order': sort_order,
+        })
+        return context

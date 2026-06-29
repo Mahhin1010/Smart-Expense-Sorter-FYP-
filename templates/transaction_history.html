@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transaction History — Smart Sorter{% endblock %}
+
+{% block content %}
+<div class="ai-container" style="background: var(--primary-bg); padding: 40px 24px 80px; min-height: 100vh;">
+    <style>
+        .btn-delete-txn {
+            background: transparent;
+            border: none;
+            color: #f43f5e;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .btn-delete-txn:hover {
+            background: rgba(244, 63, 94, 0.1);
+            color: #e11d48;
+        }
+        .row-fade-out {
+            opacity: 0 !important;
+            transform: scale(0.95);
+            transition: all 0.4s ease-out;
+        }
+        .history-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .search-form {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+            max-width: 500px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            background: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-accent);
+        }
+        .btn-search {
+            padding: 0.6rem 1.2rem;
+            background: var(--primary-accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-search:hover {
+            background: var(--primary-accent-hover);
+        }
+        .btn-edit-cat {
+            background: none;
+            border: none;
+            padding: 2px 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .btn-edit-cat:hover {
+            opacity: 1;
+        }
+    </style>
+
+    <!-- Header -->
+    <div class="ai-header" style="margin-bottom: 30px;">
+        <h1><i class="fas fa-history" style="margin-right: 12px; color: var(--primary-accent);"></i>Transaction History</h1>
+        <p>View, search, sort, and edit categories across all imported transactions.</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="history-controls">
+        <form method="get" class="search-form">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search transactions by description..." class="search-input">
+            {% if sort_order %}
+                <input type="hidden" name="sort" value="{{ sort_order }}">
+            {% endif %}
+            <button type="submit" class="btn-search"><i class="fas fa-search"></i> Search</button>
+        </form>
+
+        <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted mb-0" style="white-space: nowrap;">Sort by:</label>
+            <select class="inline-select" style="padding: 0.5rem 1rem; border-radius: var(--radius-md); border-color: var(--border-color); background: var(--secondary-bg); color: var(--text-main);" onchange="location = this.value;">
+                <option value="?q={{ search_query }}&sort=date_desc" {% if sort_order == 'date_desc' %}selected{% endif %}>Date (Newest First)</option>
+                <option value="?q={{ search_query }}&sort=date_asc" {% if sort_order == 'date_asc' %}selected{% endif %}>Date (Oldest First)</option>
+                <option value="?q={{ search_query }}&sort=amount_desc" {% if sort_order == 'amount_desc' %}selected{% endif %}>Amount (Highest First)</option>
+                <option value="?q={{ search_query }}&sort=amount_asc" {% if sort_order == 'amount_asc' %}selected{% endif %}>Amount (Lowest First)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    {% if transactions %}
+    <div class="results-section" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden;">
+        <div class="table-wrap">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Merchant</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Confidence</th>
+                        <th style="width: 80px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in transactions %}
+                    <tr id="tx-row-{{ txn.id }}">
+                        <td>{{ txn.date|date:"d M Y" }}</td>
+                        <td>{{ txn.description|truncatechars:40 }}</td>
+                        <td>{{ txn.merchant_name|default:"—" }}</td>
+                        <td style="font-family: monospace; font-weight: 600;">Rs. {{ txn.amount|floatformat:0 }}</td>
+                        <td id="cat-cell-{{ txn.id }}">
+                            <!-- Display Container -->
+                            <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-{{ txn.id }}">
+                                <span class="category-tag">{{ txn.category.name|default:"Uncategorized" }}</span>
+                                <button class="btn-edit-cat" onclick="enableEditCategory({{ txn.id }})" title="Edit Category">
+                                    <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                                </button>
+                            </div>
+
+                            <!-- Edit Container (Hidden by default) -->
+                            <div id="cat-edit-container-{{ txn.id }}" style="display: none; align-items: center; gap: 8px;">
+                                <select class="inline-select" id="select-{{ txn.id }}" onchange="updateCategory({{ txn.id }}, this.value)" style="margin-bottom: 4px;">
+                                    <option value="Uncategorized" {% if not txn.category or txn.category.name == 'Uncategorized' %}selected{% endif %}>Uncategorized</option>
+                                    {% for cat in user_categories %}
+                                        <option value="{{ cat.name }}" {% if txn.category and txn.category.name == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
+                                <button class="btn-suggestion" onclick="cancelEditCategory({{ txn.id }})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                    Cancel
+                                </button>
+                            </div>
+                        </td>
+                        <td id="conf-cell-{{ txn.id }}">
+                            {% if txn.ai_confidence >= 0.8 %}
+                                <span class="confidence-badge confidence-high">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% elif txn.ai_confidence >= 0.5 %}
+                                <span class="confidence-badge confidence-medium">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% elif txn.ai_confidence %}
+                                <span class="confidence-badge confidence-low">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                            {% else %}
+                                <span style="color: var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn-delete-txn" onclick="deleteTransaction({{ txn.id }})" title="Delete Transaction">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="results-section">
+        <div class="home-empty-state" style="padding: 80px 20px; text-align: center; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+            <i class="fas fa-receipt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; display: block;"></i>
+            <p style="color: var(--text-muted); font-size: 1.1rem;">No transactions found matching your filters.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // CSRF Token Helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Toggle Edit Mode
+    function enableEditCategory(transactionId) {
+        document.getElementById('cat-display-' + transactionId).style.display = 'none';
+        document.getElementById('cat-edit-container-' + transactionId).style.display = 'flex';
+    }
+
+    function cancelEditCategory(transactionId) {
+        document.getElementById('cat-display-' + transactionId).style.display = 'flex';
+        document.getElementById('cat-edit-container-' + transactionId).style.display = 'none';
+        
+        // Reset selection back to display value
+        const select = document.getElementById('select-' + transactionId);
+        const tag = document.querySelector('#cat-display-' + transactionId + ' .category-tag');
+        if (select && tag) {
+            select.value = tag.textContent.trim();
+        }
+    }
+
+    // AJAX Category Update
+    function updateCategory(transactionId, categoryName) {
+        if (!categoryName) return;
+        
+        const spinner = document.getElementById('spinner-' + transactionId);
+        if (spinner) spinner.classList.add('active');
+
+        fetch('{% url "api_update_category" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId,
+                category_name: categoryName,
+                create_new: false
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (spinner) spinner.classList.remove('active');
+            
+            if (data.status === 'success') {
+                const displayDiv = document.getElementById('cat-display-' + transactionId);
+                const editDiv = document.getElementById('cat-edit-container-' + transactionId);
+                const confCell = document.getElementById('conf-cell-' + transactionId);
+                
+                if (displayDiv && editDiv) {
+                    const tag = displayDiv.querySelector('.category-tag');
+                    if (tag) {
+                        tag.textContent = data.category_name;
+                        tag.style.background = 'rgba(52, 211, 153, 0.2)';
+                        tag.style.color = '#34d399';
+                    }
+                    displayDiv.style.display = 'flex';
+                    editDiv.style.display = 'none';
+                }
+                if (confCell) {
+                    confCell.innerHTML = `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`;
+                }
+            } else {
+                alert('Error updating category: ' + data.message);
+                cancelEditCategory(transactionId);
+            }
+        })
+        .catch(error => {
+            if (spinner) spinner.classList.remove('active');
+            alert('A network error occurred.');
+            console.error('Error:', error);
+            cancelEditCategory(transactionId);
+        });
+    }
+
+    // Individual Delete Logic
+    function deleteTransaction(transactionId) {
+        if (!confirm("Are you sure you want to delete this transaction from history?")) {
+            return;
+        }
+
+        const row = document.getElementById('tx-row-' + transactionId);
+        
+        fetch('{% url "api_delete_transaction" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (row) {
+                    row.classList.add('row-fade-out');
+                    setTimeout(() => {
+                        row.remove();
+                        const remainingRows = document.querySelectorAll('tbody tr');
+                        if (remainingRows.length === 0) {
+                            window.location.reload();
+                        }
+                    }, 400);
+                }
+            } else {
+                alert('Error deleting transaction: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('A network error occurred.');
+            console.error('Error:', error);
+        });
+    }
+</script>
+{% endblock %}

@@ -2,7 +2,7 @@
 
 from django.urls import path
 from . import views
-from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView, AboutView, FeaturesView, UpdateTransactionCategoryAPI, DeleteTransactionAPI, ClearAllTransactionsView
+from .views import AISortingView, AnalyticsDashboardView, TransactionUploadView, HomeView, ManageCategoriesView, AboutView, FeaturesView, UpdateTransactionCategoryAPI, DeleteTransactionAPI, ClearAllTransactionsView, TransactionHistoryView
 
 urlpatterns = [
     # Route 1: Home page
@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/update-category/', UpdateTransactionCategoryAPI.as_view(), name='api_update_category'),
     path('api/delete-transaction/', DeleteTransactionAPI.as_view(), name='api_delete_transaction'),
     path('clear-transactions/', ClearAllTransactionsView.as_view(), name='clear_all_transactions'),
+
+    # Transaction History
+    path('history/', TransactionHistoryView.as_view(), name='transaction_history'),
 
     # Analytics Dashboard (UC 5.1)
     path('analytics/', AnalyticsDashboardView.as_view(), name='analytics_dashboard'),

@@ -168,7 +168,27 @@
                                     </div>
                                 {% endif %}
                             {% else %}
-                                <span class="category-tag">{{ txn.category.name }}</span>
+                                <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-{{ txn.id }}">
+                                    <span class="category-tag">{{ txn.category.name }}</span>
+                                    <button class="btn-edit-cat" onclick="enableEditCategory({{ txn.id }})" 
+                                            style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
+                                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" title="Edit Category">
+                                        <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                                    </button>
+                                </div>
+
+                                <div id="cat-edit-container-{{ txn.id }}" style="display: none; align-items: center; gap: 8px;">
+                                    <select class="inline-select" id="select-{{ txn.id }}" onchange="updateCategory({{ txn.id }}, this.value, false)" style="margin-bottom: 4px;">
+                                        <option value="Uncategorized">Uncategorized</option>
+                                        {% for cat in user_categories %}
+                                            <option value="{{ cat.name }}" {% if txn.category.name == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
+                                    <button class="btn-suggestion" onclick="cancelEditCategory({{ txn.id }})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                        Cancel
+                                    </button>
+                                </div>
                             {% endif %}
                         </td>
                         <td id="conf-cell-{{ txn.id }}">
@@ -280,6 +300,32 @@
         });
     }
 
+    // Toggle Edit Mode for Categorized Rows
+    function enableEditCategory(transactionId) {
+        const displayDiv = document.getElementById('cat-display-' + transactionId);
+        const editDiv = document.getElementById('cat-edit-container-' + transactionId);
+        if (displayDiv && editDiv) {
+            displayDiv.style.display = 'none';
+            editDiv.style.display = 'flex';
+        }
+    }
+
+    function cancelEditCategory(transactionId) {
+        const displayDiv = document.getElementById('cat-display-' + transactionId);
+        const editDiv = document.getElementById('cat-edit-container-' + transactionId);
+        if (displayDiv && editDiv) {
+            displayDiv.style.display = 'flex';
+            editDiv.style.display = 'none';
+            
+            // Reset selection back to display value
+            const select = document.getElementById('select-' + transactionId);
+            const tag = displayDiv.querySelector('.category-tag');
+            if (select && tag) {
+                select.value = tag.textContent.trim();
+            }
+        }
+    }
+
     // AJAX Category Update
     function updateCategory(transactionId, categoryName, createNew) {
         if (!categoryName || categoryName === 'Uncategorized') return;
@@ -304,16 +350,49 @@
             if (spinner) spinner.classList.remove('active');
             
             if (data.status === 'success') {
-                // Update UI visually
-                const cell = document.getElementById('cat-cell-' + transactionId);
+                const displayDiv = document.getElementById('cat-display-' + transactionId);
+                const editDiv = document.getElementById('cat-edit-container-' + transactionId);
                 const confCell = document.getElementById('conf-cell-' + transactionId);
                 
-                // Replace dropdown/button with standard tag
-                cell.innerHTML = `<span class="category-tag" style="background: rgba(52, 211, 153, 0.2); color: #34d399;">${data.category_name}</span>`;
-                confCell.innerHTML = `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`;
+                if (displayDiv && editDiv) {
+                    const tag = displayDiv.querySelector('.category-tag');
+                    if (tag) {
+                        tag.textContent = data.category_name;
+                        tag.style.background = 'rgba(52, 211, 153, 0.2)';
+                        tag.style.color = '#34d399';
+                    }
+                    displayDiv.style.display = 'flex';
+                    editDiv.style.display = 'none';
+                } else {
+                    // Transforming originally Uncategorized cell
+                    const cell = document.getElementById('cat-cell-' + transactionId);
+                    cell.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-${transactionId}">
+                            <span class="category-tag" style="background: rgba(52, 211, 153, 0.2); color: #34d399;">${data.category_name}</span>
+                            <button class="btn-edit-cat" onclick="enableEditCategory(${transactionId})" 
+                                    style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
+                                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" title="Edit Category">
+                                <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                            </button>
+                        </div>
+                        <div id="cat-edit-container-${transactionId}" style="display: none; align-items: center; gap: 8px;">
+                            <select class="inline-select" id="select-${transactionId}" onchange="updateCategory(${transactionId}, this.value, false)" style="margin-bottom: 4px;">
+                                <option value="Uncategorized">Uncategorized</option>
+                                {% for cat in user_categories %}
+                                    <option value="{{ cat.name }}">${cat.name}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-${transactionId}"></i>
+                            <button class="btn-suggestion" onclick="cancelEditCategory(${transactionId})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                Cancel
+                            </button>
+                        </div>
+                    `;
+                }
                 
-                // Highlight row
-                cell.parentElement.classList.add('row-updated');
+                if (confCell) {
+                    confCell.innerHTML = `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`;
+                }
 
                 // Dynamically update other inline-select options on the page if a new category was created
                 if (createNew) {
@@ -336,10 +415,13 @@
                 }
             } else {
                 alert('Error updating category: ' + data.message);
-                // Reset select if failed
-                if(!createNew) {
+                const displayDiv = document.getElementById('cat-display-' + transactionId);
+                if (displayDiv) {
+                    cancelEditCategory(transactionId);
+                } else {
+                    const cell = document.getElementById('cat-cell-' + transactionId);
                     const select = cell.querySelector('select');
-                    if(select) select.value = 'Uncategorized';
+                    if (select) select.value = 'Uncategorized';
                 }
             }
         })

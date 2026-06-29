@@ -153,8 +153,15 @@
         </div>
 
         <div class="home-section">
-            <p class="home-kicker">Recent transactions</p>
-            <h2>Latest rows</h2>
+            <div class="section-heading-row">
+                <div>
+                    <p class="home-kicker">Recent transactions</p>
+                    <h2>Latest rows</h2>
+                </div>
+                <a href="{% url 'transaction_history' %}" class="home-inline-link" style="font-size: 0.85rem;">
+                    View Complete Transactions <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
             <div class="transaction-mini-list">
                 {% for transaction in recent_transactions %}
                 <div class="transaction-mini-item">
