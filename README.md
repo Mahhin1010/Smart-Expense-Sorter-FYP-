@@ -49,21 +49,6 @@ The project was built as a final-year project with a focus on clean Django archi
 └── run_system.bat          # Windows wrapper for the PowerShell startup helper
 ```
 
-## What Is Intentionally Not Committed
-
-The repository is kept clean by excluding local runtime files, generated files, and private data:
-
-- `.env` and other local secret files
-- API keys, database URLs, and Metabase embedding secrets
-- Virtual environments such as `.venv/`, `venv/`, and `env/`
-- Local SQLite databases such as `db.sqlite3`
-- Uploaded media and temporary import files
-- Collected static output in `staticfiles/`
-- Metabase runtime files such as `metabase.jar`, `metabase.db.*`, and `plugins/`
-- Development scratch folders, draft documentation folders, and old CSV experiments
-- Python cache files such as `__pycache__/` and `*.pyc`
-
-This keeps GitHub focused on source code, configuration templates, migrations, static source assets, tests, and small reproducible sample data.
 
 ## Prerequisites
 
