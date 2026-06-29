@@ -6,7 +6,14 @@ Write-Host "==========================================================" -Foregro
 # 1. Start Metabase Node
 Write-Host "[+] Locating Java for Metabase..." -ForegroundColor Yellow
 $javaCmd = "java"
-if ($env:JAVA_HOME) {
+$preferredJava21 = "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe"
+if ($env:METABASE_JAVA_PATH -and (Test-Path $env:METABASE_JAVA_PATH)) {
+    $javaCmd = $env:METABASE_JAVA_PATH
+    Write-Host "    Using METABASE_JAVA_PATH: $javaCmd" -ForegroundColor Green
+} elseif (Test-Path $preferredJava21) {
+    $javaCmd = $preferredJava21
+    Write-Host "    Using Java 21: $javaCmd" -ForegroundColor Green
+} elseif ($env:JAVA_HOME) {
     $javaFromHome = Join-Path $env:JAVA_HOME "bin\java.exe"
     if (Test-Path $javaFromHome) {
         $javaCmd = $javaFromHome
@@ -26,12 +33,20 @@ if (Test-Path $metabaseJar) {
 
 # 2. Setup Python environment and Database migrations
 Write-Host "[+] Running database migrations..." -ForegroundColor Yellow
-if (Test-Path "venv\Scripts\python.exe") {
-    $pythonCmd = "venv\Scripts\python.exe"
-} elseif (Test-Path ".venv\Scripts\python.exe") {
+
+if (-not (Test-Path ".venv\pyvenv.cfg")) {
+    Write-Host "    Local .venv not found. Creating it from requirements.txt..." -ForegroundColor Yellow
+    py -3.14 -m venv .venv
+    & ".venv\Scripts\python.exe" -m pip install --upgrade pip
+    & ".venv\Scripts\python.exe" -m pip install -r requirements.txt
+}
+
+if (Test-Path ".venv\Scripts\python.exe") {
     $pythonCmd = ".venv\Scripts\python.exe"
+} elseif (Test-Path "venv\Scripts\python.exe") {
+    $pythonCmd = "venv\Scripts\python.exe"
 } else {
-    $pythonCmd = "python"
+    $pythonCmd = "py"
 }
 
 & $pythonCmd manage.py migrate
