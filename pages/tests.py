@@ -110,11 +110,11 @@ class PagesSystemTests(TestCase):
         url = reverse('manage_categories')
         self.client.post(url, {'delete_category': '', 'category_id': self.cat_food_a.id})
         
-        # Verify category deleted but transaction remains with category=NULL (SET_NULL)
+        # Verify category deleted and transaction is reassigned to 'Uncategorized'
         self.assertFalse(Category.objects.filter(id=self.cat_food_a.id).exists())
         
         txn.refresh_from_db()
-        self.assertIsNone(txn.category)
+        self.assertEqual(txn.category.name, 'Uncategorized')
 
     def test_tc_09_default_suggestions_filter(self):
         """TC-09: Default suggestions list items not already created by user."""

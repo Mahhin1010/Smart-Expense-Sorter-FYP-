@@ -188,11 +188,13 @@ class TransactionUploadView(LoginRequiredMixin, View):
             transactions = None
 
         has_existing_transactions = Transaction.objects.filter(user=request.user).exists()
+        has_categories = Category.objects.filter(user=request.user).exclude(name='Uncategorized').exists()
             
         context = {
             'stats': stats,
             'transactions': transactions,
             'has_existing_transactions': has_existing_transactions,
+            'has_categories': has_categories,
         }
         return render(request, self.template_name, context)
 
@@ -379,10 +381,17 @@ class AISortingView(LoginRequiredMixin, View):
         category_count = Category.objects.filter(user=request.user).count()
 
         # Get recently classified transactions for results display
+        from django.db.models import Case, When, Value, IntegerField
         recent_ai_results = list(Transaction.objects.filter(
             user=request.user,
             is_ai_categorized=True
-        ).select_related('category')[:50])
+        ).select_related('category').annotate(
+            needs_review=Case(
+                When(Q(category__isnull=True) | Q(category__name='Uncategorized'), then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        ).order_by('needs_review', '-ai_run_id', '-date')[:50])
         
         # Sort in memory: Uncategorized (manual review) first, then absolute amount descending
         recent_ai_results.sort(
@@ -614,15 +623,47 @@ class UpdateTransactionCategoryAPI(LoginRequiredMixin, View):
                 category = Category.objects.get(user=request.user, name=category_name)
 
             # Update the transaction
+            original_ai_suggested = transaction.ai_suggested_category
             transaction.category = category
             transaction.ai_suggested_category = None # Clear suggestion once resolved
             transaction.save(update_fields=['category', 'ai_suggested_category'])
+
+            # Bulk update similar transactions if applicable
+            from django.db.models import Q
+            
+            # Find transactions that are uncategorized (null or 'Uncategorized')
+            similar_txs = Transaction.objects.filter(
+                user=request.user
+            ).filter(
+                Q(category__isnull=True) | Q(category__name='Uncategorized')
+            ).exclude(id=transaction.id)
+
+            similarity_query = Q()
+            
+            # 1. Match by description
+            if transaction.description:
+                similarity_query |= Q(description=transaction.description)
+                
+            # 2. Match by AI suggestion if the user accepted/selected it
+            if original_ai_suggested and original_ai_suggested == category.name:
+                similarity_query |= Q(ai_suggested_category=original_ai_suggested)
+
+            updated_ids = [transaction.id]
+            
+            if similarity_query:
+                matching_txs = similar_txs.filter(similarity_query)
+                for m_tx in matching_txs:
+                    m_tx.category = category
+                    m_tx.ai_suggested_category = None
+                    m_tx.save(update_fields=['category', 'ai_suggested_category'])
+                    updated_ids.append(m_tx.id)
 
             return JsonResponse({
                 'status': 'success', 
                 'message': f"Category updated to {category.name}",
                 'category_id': category.id,
-                'category_name': category.name
+                'category_name': category.name,
+                'updated_transaction_ids': updated_ids
             })
 
         except Transaction.DoesNotExist:

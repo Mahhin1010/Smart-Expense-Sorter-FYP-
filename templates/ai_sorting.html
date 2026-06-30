@@ -18,10 +18,12 @@
             border-radius: 6px;
             transition: all 0.2s;
         }
+
         .btn-delete-txn:hover {
             background: rgba(244, 63, 94, 0.1);
             color: #e11d48;
         }
+
         .row-fade-out {
             opacity: 0 !important;
             transform: scale(0.95);
@@ -77,42 +79,44 @@
             </div>
 
             {% if uncategorized_count > 0 and category_count > 0 %}
-                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">{{ uncategorized_count }} Transaction{{ uncategorized_count|pluralize }} Ready</h2>
-                <p style="color: #94a3b8; margin-bottom: 28px;">
-                    The AI will analyze descriptions, merchant names, and transaction types
-                    to assign the best category from your list.
-                </p>
-                <form method="post" id="ai-form">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-process" id="btn-process">
-                        <i class="fas fa-bolt"></i>
-                        <span id="btn-text">Process with {{ provider_display }} ({{ model_display }})</span>
-                        <span class="spinner" id="spinner"><i class="fas fa-circle-notch"></i></span>
-                    </button>
-                </form>
+            <h2 style="margin-bottom: 12px; font-size: 1.3rem;">{{ uncategorized_count }} Transaction{{
+                uncategorized_count|pluralize }} Ready</h2>
+            <p style="color: #94a3b8; margin-bottom: 28px;">
+                The AI will analyze descriptions, merchant names, and transaction types
+                to assign the best category from your list.
+            </p>
+            <form method="post" id="ai-form">
+                {% csrf_token %}
+                <button type="submit" class="btn-process" id="btn-process">
+                    <i class="fas fa-bolt"></i>
+                    <span id="btn-text">Process with {{ provider_display }} ({{ model_display }})</span>
+                    <span class="spinner" id="spinner"><i class="fas fa-circle-notch"></i></span>
+                </button>
+            </form>
             {% elif category_count == 0 %}
-                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">Categories Required</h2>
-                <p style="color: #94a3b8; margin-bottom: 28px;">
-                    You need to create spending categories before the AI can classify your transactions.
-                </p>
-                <a href="{% url 'manage_categories' %}" class="btn-process" style="text-decoration: none;">
-                    <i class="fas fa-tags"></i> Create Categories
-                </a>
+            <h2 style="margin-bottom: 12px; font-size: 1.3rem;">Categories Required</h2>
+            <p style="color: #94a3b8; margin-bottom: 28px;">
+                You need to create spending categories before the AI can classify your transactions.
+            </p>
+            <a href="{% url 'manage_categories' %}" class="btn-process" style="text-decoration: none;">
+                <i class="fas fa-tags"></i> Create Categories
+            </a>
             {% elif uncategorized_count == 0 and total_count > 0 %}
-                <h2 style="margin-bottom: 12px; font-size: 1.3rem; color: #34d399;">
-                    <i class="fas fa-check-circle"></i> All Caught Up!
-                </h2>
-                <p style="color: var(--text-muted); margin-bottom: 28px;">
-                    All {{ total_count }} transaction{{ total_count|pluralize }} {{ total_count|pluralize:"has,have" }} been categorized.
-                </p>
+            <h2 style="margin-bottom: 12px; font-size: 1.3rem; color: #34d399;">
+                <i class="fas fa-check-circle"></i> All Caught Up!
+            </h2>
+            <p style="color: var(--text-muted); margin-bottom: 28px;">
+                All {{ total_count }} transaction{{ total_count|pluralize }} {{ total_count|pluralize:"has,have" }} been
+                categorized.
+            </p>
             {% else %}
-                <h2 style="margin-bottom: 12px; font-size: 1.3rem;">No Transactions Found</h2>
-                <p style="color: var(--text-muted); margin-bottom: 28px;">
-                    Upload a CSV file first, then come back to classify your transactions.
-                </p>
-                <a href="{% url 'upload_transactions' %}" class="btn-process" style="text-decoration: none;">
-                    <i class="fas fa-upload"></i> Upload CSV
-                </a>
+            <h2 style="margin-bottom: 12px; font-size: 1.3rem;">No Transactions Found</h2>
+            <p style="color: var(--text-muted); margin-bottom: 28px;">
+                Upload a CSV file first, then come back to classify your transactions.
+            </p>
+            <a href="{% url 'upload_transactions' %}" class="btn-process" style="text-decoration: none;">
+                <i class="fas fa-upload"></i> Upload CSV
+            </a>
             {% endif %}
 
             <div style="margin-top: 20px;">
@@ -152,58 +156,70 @@
                         <td style="font-family: monospace;">Rs. {{ txn.amount|floatformat:0 }}</td>
                         <td id="cat-cell-{{ txn.id }}">
                             {% if txn.category.name == 'Uncategorized' %}
-                                <select class="inline-select" onchange="updateCategory({{ txn.id }}, this.value, false)">
-                                    <option value="Uncategorized" selected>Uncategorized</option>
+                            <select class="inline-select" onchange="updateCategory({{ txn.id }}, this.value, false)">
+                                <option value="Uncategorized" selected>Uncategorized</option>
+                                {% for cat in user_categories %}
+                                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
+
+                            {% if txn.ai_suggested_category and txn.ai_suggested_category != 'Uncategorized' %}
+                            <div id="sugg-{{ txn.id }}">
+                                <button class="btn-suggestion"
+                                    onclick="updateCategory({{ txn.id }}, '{{ txn.ai_suggested_category }}', true)">
+                                    ✨ Suggestion: {{ txn.ai_suggested_category }}
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <div class="d-flex align-items-center justify-content-between gap-2"
+                                id="cat-display-{{ txn.id }}">
+                                <span class="category-tag">{{ txn.category.name }}</span>
+                                <button class="btn-edit-cat" onclick="enableEditCategory({{ txn.id }})"
+                                    style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
+                                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'"
+                                    title="Edit Category">
+                                    <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                                </button>
+                            </div>
+
+                            <div id="cat-edit-container-{{ txn.id }}"
+                                style="display: none; align-items: center; gap: 8px;">
+                                <select class="inline-select" id="select-{{ txn.id }}"
+                                    onchange="updateCategory({{ txn.id }}, this.value, false)"
+                                    style="margin-bottom: 4px;">
+                                    <option value="Uncategorized">Uncategorized</option>
                                     {% for cat in user_categories %}
-                                        <option value="{{ cat.name }}">{{ cat.name }}</option>
+                                    <option value="{{ cat.name }}" {% if txn.category.name==cat.name %}selected{% endif
+                                        %}>{{ cat.name }}</option>
                                     {% endfor %}
                                 </select>
                                 <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
-                                
-                                {% if txn.ai_suggested_category and txn.ai_suggested_category != 'Uncategorized' %}
-                                    <div id="sugg-{{ txn.id }}">
-                                        <button class="btn-suggestion" onclick="updateCategory({{ txn.id }}, '{{ txn.ai_suggested_category }}', true)">
-                                            ✨ Suggestion: {{ txn.ai_suggested_category }}
-                                        </button>
-                                    </div>
-                                {% endif %}
-                            {% else %}
-                                <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-{{ txn.id }}">
-                                    <span class="category-tag">{{ txn.category.name }}</span>
-                                    <button class="btn-edit-cat" onclick="enableEditCategory({{ txn.id }})" 
-                                            style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
-                                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" title="Edit Category">
-                                        <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
-                                    </button>
-                                </div>
-
-                                <div id="cat-edit-container-{{ txn.id }}" style="display: none; align-items: center; gap: 8px;">
-                                    <select class="inline-select" id="select-{{ txn.id }}" onchange="updateCategory({{ txn.id }}, this.value, false)" style="margin-bottom: 4px;">
-                                        <option value="Uncategorized">Uncategorized</option>
-                                        {% for cat in user_categories %}
-                                            <option value="{{ cat.name }}" {% if txn.category.name == cat.name %}selected{% endif %}>{{ cat.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
-                                    <button class="btn-suggestion" onclick="cancelEditCategory({{ txn.id }})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
-                                        Cancel
-                                    </button>
-                                </div>
+                                <button class="btn-suggestion" onclick="cancelEditCategory({{ txn.id }})"
+                                    style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                    Cancel
+                                </button>
+                            </div>
                             {% endif %}
                         </td>
                         <td id="conf-cell-{{ txn.id }}">
                             {% if txn.ai_confidence >= 0.8 %}
-                                <span class="confidence-badge confidence-high">{% widthratio txn.ai_confidence 1 100 %}%</span>
+                            <span class="confidence-badge confidence-high">{% widthratio txn.ai_confidence 1 100
+                                %}%</span>
                             {% elif txn.ai_confidence >= 0.5 %}
-                                <span class="confidence-badge confidence-medium">{% widthratio txn.ai_confidence 1 100 %}%</span>
+                            <span class="confidence-badge confidence-medium">{% widthratio txn.ai_confidence 1 100
+                                %}%</span>
                             {% elif txn.ai_confidence %}
-                                <span class="confidence-badge confidence-low">{% widthratio txn.ai_confidence 1 100 %}%</span>
+                            <span class="confidence-badge confidence-low">{% widthratio txn.ai_confidence 1 100
+                                %}%</span>
                             {% else %}
-                                <span style="color: #475569;">—</span>
+                            <span style="color: #475569;">—</span>
                             {% endif %}
                         </td>
                         <td style="text-align: center;">
-                            <button class="btn-delete-txn" onclick="deleteTransaction({{ txn.id }})" title="Delete Transaction">
+                            <button class="btn-delete-txn" onclick="deleteTransaction({{ txn.id }})"
+                                title="Delete Transaction">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
                         </td>
@@ -227,7 +243,7 @@
     // Show spinner on form submit and prevent double-click
     const form = document.getElementById('ai-form');
     if (form) {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             // Check browser-side network connectivity
             if (!navigator.onLine) {
                 e.preventDefault();
@@ -266,7 +282,7 @@
         }
 
         const row = document.getElementById('tx-row-' + transactionId);
-        
+
         fetch('{% url "api_delete_transaction" %}', {
             method: 'POST',
             headers: {
@@ -277,27 +293,27 @@
                 transaction_id: transactionId
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                if (row) {
-                    row.classList.add('row-fade-out');
-                    setTimeout(() => {
-                        row.remove();
-                        const remainingRows = document.querySelectorAll('tbody tr');
-                        if (remainingRows.length === 0) {
-                            window.location.reload();
-                        }
-                    }, 400);
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (row) {
+                        row.classList.add('row-fade-out');
+                        setTimeout(() => {
+                            row.remove();
+                            const remainingRows = document.querySelectorAll('tbody tr');
+                            if (remainingRows.length === 0) {
+                                window.location.reload();
+                            }
+                        }, 400);
+                    }
+                } else {
+                    alert('Error deleting transaction: ' + data.message);
                 }
-            } else {
-                alert('Error deleting transaction: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('A network error occurred.');
-            console.error('Error:', error);
-        });
+            })
+            .catch(error => {
+                alert('A network error occurred.');
+                console.error('Error:', error);
+            });
     }
 
     // Toggle Edit Mode for Categorized Rows
@@ -316,7 +332,7 @@
         if (displayDiv && editDiv) {
             displayDiv.style.display = 'flex';
             editDiv.style.display = 'none';
-            
+
             // Reset selection back to display value
             const select = document.getElementById('select-' + transactionId);
             const tag = displayDiv.querySelector('.category-tag');
@@ -326,10 +342,66 @@
         }
     }
 
+    function applyDOMCategoryUpdate(id, categoryName, isManual) {
+        const displayDiv = document.getElementById('cat-display-' + id);
+        const editDiv = document.getElementById('cat-edit-container-' + id);
+        const confCell = document.getElementById('conf-cell-' + id);
+
+        const tagBg = isManual ? 'rgba(52, 211, 153, 0.2)' : 'rgba(99, 102, 241, 0.15)';
+        const tagColor = isManual ? '#34d399' : '#818cf8';
+        const tagBorder = isManual ? 'none' : '1px solid rgba(99, 102, 241, 0.25)';
+        const confBadge = isManual
+            ? `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`
+            : `<span class="confidence-badge" style="font-size:0.7rem; background: rgba(99, 102, 241, 0.1); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2);"><i class="fas fa-sync-alt"></i> Auto-Synced</span>`;
+
+        if (displayDiv && editDiv) {
+            const tag = displayDiv.querySelector('.category-tag');
+            if (tag) {
+                tag.textContent = categoryName;
+                tag.style.background = tagBg;
+                tag.style.color = tagColor;
+                tag.style.border = tagBorder;
+            }
+            displayDiv.style.display = 'flex';
+            editDiv.style.display = 'none';
+        } else {
+            // Transforming originally Uncategorized cell
+            const cell = document.getElementById('cat-cell-' + id);
+            if (cell) {
+                cell.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-${id}">
+                        <span class="category-tag" style="background: ${tagBg}; color: ${tagColor}; border: ${tagBorder}; padding: 4px 8px; border-radius: 8px;">${categoryName}</span>
+                        <button class="btn-edit-cat" onclick="enableEditCategory(${id})" 
+                                style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
+                                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" title="Edit Category">
+                            <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                        </button>
+                    </div>
+                    <div id="cat-edit-container-${id}" style="display: none; align-items: center; gap: 8px;">
+                        <select class="inline-select" id="select-${id}" onchange="updateCategory(${id}, this.value, false)" style="margin-bottom: 4px;">
+                            <option value="Uncategorized">Uncategorized</option>
+                            {% for cat in user_categories %}
+                                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-${id}"></i>
+                        <button class="btn-suggestion" onclick="cancelEditCategory(${id})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        if (confCell) {
+            confCell.innerHTML = confBadge;
+        }
+    }
+
     // AJAX Category Update
     function updateCategory(transactionId, categoryName, createNew) {
         if (!categoryName || categoryName === 'Uncategorized') return;
-        
+
         const spinner = document.getElementById('spinner-' + transactionId);
         if (spinner) spinner.classList.add('active');
 
@@ -345,91 +417,57 @@
                 create_new: createNew
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (spinner) spinner.classList.remove('active');
-            
-            if (data.status === 'success') {
-                const displayDiv = document.getElementById('cat-display-' + transactionId);
-                const editDiv = document.getElementById('cat-edit-container-' + transactionId);
-                const confCell = document.getElementById('conf-cell-' + transactionId);
-                
-                if (displayDiv && editDiv) {
-                    const tag = displayDiv.querySelector('.category-tag');
-                    if (tag) {
-                        tag.textContent = data.category_name;
-                        tag.style.background = 'rgba(52, 211, 153, 0.2)';
-                        tag.style.color = '#34d399';
-                    }
-                    displayDiv.style.display = 'flex';
-                    editDiv.style.display = 'none';
-                } else {
-                    // Transforming originally Uncategorized cell
-                    const cell = document.getElementById('cat-cell-' + transactionId);
-                    cell.innerHTML = `
-                        <div class="d-flex align-items-center justify-content-between gap-2" id="cat-display-${transactionId}">
-                            <span class="category-tag" style="background: rgba(52, 211, 153, 0.2); color: #34d399;">${data.category_name}</span>
-                            <button class="btn-edit-cat" onclick="enableEditCategory(${transactionId})" 
-                                    style="background: none; border: none; padding: 2px; color: var(--text-muted); cursor: pointer; opacity: 0.5; transition: opacity 0.2s;"
-                                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" title="Edit Category">
-                                <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
-                            </button>
-                        </div>
-                        <div id="cat-edit-container-${transactionId}" style="display: none; align-items: center; gap: 8px;">
-                            <select class="inline-select" id="select-${transactionId}" onchange="updateCategory(${transactionId}, this.value, false)" style="margin-bottom: 4px;">
-                                <option value="Uncategorized">Uncategorized</option>
-                                {% for cat in user_categories %}
-                                    <option value="{{ cat.name }}">${cat.name}</option>
-                                {% endfor %}
-                            </select>
-                            <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-${transactionId}"></i>
-                            <button class="btn-suggestion" onclick="cancelEditCategory(${transactionId})" style="padding: 2px 8px; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
-                                Cancel
-                            </button>
-                        </div>
-                    `;
-                }
-                
-                if (confCell) {
-                    confCell.innerHTML = `<span class="confidence-badge confidence-high" style="font-size:0.7rem;"><i class="fas fa-user-edit"></i> Manual</span>`;
-                }
+            .then(response => response.json())
+            .then(data => {
+                if (spinner) spinner.classList.remove('active');
 
-                // Dynamically update other inline-select options on the page if a new category was created
-                if (createNew) {
-                    const selects = document.querySelectorAll('.inline-select');
-                    selects.forEach(select => {
-                        let optionExists = false;
-                        for (let i = 0; i < select.options.length; i++) {
-                            if (select.options[i].value === data.category_name) {
-                                optionExists = true;
-                                break;
+                if (data.status === 'success') {
+                    // Bulk update DOM elements returned by API
+                    if (data.updated_transaction_ids && data.updated_transaction_ids.length > 0) {
+                        data.updated_transaction_ids.forEach(id => {
+                            const isManual = (id === transactionId);
+                            applyDOMCategoryUpdate(id, data.category_name, isManual);
+                        });
+                    } else {
+                        applyDOMCategoryUpdate(transactionId, data.category_name, true);
+                    }
+
+                    // Dynamically update other inline-select options on the page if a new category was created
+                    if (createNew) {
+                        const selects = document.querySelectorAll('.inline-select');
+                        selects.forEach(select => {
+                            let optionExists = false;
+                            for (let i = 0; i < select.options.length; i++) {
+                                if (select.options[i].value === data.category_name) {
+                                    optionExists = true;
+                                    break;
+                                }
                             }
-                        }
-                        if (!optionExists) {
-                            const opt = document.createElement('option');
-                            opt.value = data.category_name;
-                            opt.textContent = data.category_name;
-                            select.appendChild(opt);
-                        }
-                    });
-                }
-            } else {
-                alert('Error updating category: ' + data.message);
-                const displayDiv = document.getElementById('cat-display-' + transactionId);
-                if (displayDiv) {
-                    cancelEditCategory(transactionId);
+                            if (!optionExists) {
+                                const opt = document.createElement('option');
+                                opt.value = data.category_name;
+                                opt.textContent = data.category_name;
+                                select.appendChild(opt);
+                            }
+                        });
+                    }
                 } else {
-                    const cell = document.getElementById('cat-cell-' + transactionId);
-                    const select = cell.querySelector('select');
-                    if (select) select.value = 'Uncategorized';
+                    alert('Error updating category: ' + data.message);
+                    const displayDiv = document.getElementById('cat-display-' + transactionId);
+                    if (displayDiv) {
+                        cancelEditCategory(transactionId);
+                    } else {
+                        const cell = document.getElementById('cat-cell-' + transactionId);
+                        const select = cell.querySelector('select');
+                        if (select) select.value = 'Uncategorized';
+                    }
                 }
-            }
-        })
-        .catch(error => {
-            if (spinner) spinner.classList.remove('active');
-            alert('A network error occurred.');
-            console.error('Error:', error);
-        });
+            })
+            .catch(error => {
+                if (spinner) spinner.classList.remove('active');
+                alert('A network error occurred.');
+                console.error('Error:', error);
+            });
     }
 </script>
 {% endblock %}
