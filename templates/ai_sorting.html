@@ -191,8 +191,7 @@
                                     style="margin-bottom: 4px;">
                                     <option value="Uncategorized">Uncategorized</option>
                                     {% for cat in user_categories %}
-                                    <option value="{{ cat.name }}" {% if txn.category.name==cat.name %}selected{% endif
-                                        %}>{{ cat.name }}</option>
+                                    <option value="{{ cat.name }}" {% if txn.category.name == cat.name %}selected{% endif %}>{{ cat.name }}</option>
                                     {% endfor %}
                                 </select>
                                 <i class="fas fa-circle-notch fa-spin update-spinner" id="spinner-{{ txn.id }}"></i>
