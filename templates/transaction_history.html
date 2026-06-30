@@ -153,11 +153,11 @@
                         </td>
                         <td id="conf-cell-{{ txn.id }}">
                             {% if txn.ai_confidence >= 0.8 %}
-                                <span class="confidence-badge confidence-high">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                                <span class="confidence-badge confidence-high">{% widthratio txn.ai_confidence 1 100 %}%</span>
                             {% elif txn.ai_confidence >= 0.5 %}
-                                <span class="confidence-badge confidence-medium">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                                <span class="confidence-badge confidence-medium">{% widthratio txn.ai_confidence 1 100 %}%</span>
                             {% elif txn.ai_confidence %}
-                                <span class="confidence-badge confidence-low">{{ txn.ai_confidence|floatformat:0 }}%</span>
+                                <span class="confidence-badge confidence-low">{% widthratio txn.ai_confidence 1 100 %}%</span>
                             {% else %}
                                 <span style="color: var(--text-muted);">—</span>
                             {% endif %}

@@ -32,6 +32,21 @@
             </div>
         </div>
 
+        <!-- Metabase connection health warning -->
+        {% if metabase_not_running %}
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--warning-text); padding: 24px; border-radius: 12px; font-family: inherit; margin-bottom: 20px; box-shadow: var(--shadow-sm);">
+                <h4 style="margin: 0 0 8px; font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 10px; color: var(--warning-text);">
+                    <i class="fas fa-clock fa-spin"></i> Metabase Server Starting Up
+                </h4>
+                <p style="margin: 0; opacity: 0.9; line-height: 1.6;">
+                    The analytics engine is currently starting up or offline. If you just launched the local system, Metabase usually takes <strong>1-2 minutes</strong> to fully boot the Java Virtual Machine.
+                </p>
+                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">
+                    Please check the running terminal console or refresh this page in a few moments.
+                </p>
+            </div>
+        {% endif %}
+
         <!-- Panel 1: Expense Analysis -->
         <div id="panel-expense" class="tab-panel active">
             {% if embed_error %}

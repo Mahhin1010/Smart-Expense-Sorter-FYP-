@@ -150,6 +150,9 @@ class ManageCategoriesView(LoginRequiredMixin, View):
             category_id = request.POST.get('category_id')
             try:
                 category = Category.objects.get(id=category_id, user=request.user)
+                if category.name != 'Uncategorized':
+                    uncat_obj, _ = Category.objects.get_or_create(user=request.user, name='Uncategorized')
+                    Transaction.objects.filter(category=category, user=request.user).update(category=uncat_obj)
                 category.delete()
                 messages.success(request, "Category deleted successfully.")
             except Category.DoesNotExist:
@@ -516,7 +519,23 @@ class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
         
         import jwt
         import time
+        import socket
+        from urllib.parse import urlparse
         from django.conf import settings
+
+        # Check if local Metabase port is listening
+        parsed_url = urlparse(settings.METABASE_SITE_URL)
+        host = parsed_url.hostname or 'localhost'
+        port = parsed_url.port or 3000
+        
+        metabase_running = False
+        try:
+            with socket.create_connection((host, port), timeout=0.8):
+                metabase_running = True
+        except (socket.timeout, ConnectionRefusedError, OSError):
+            metabase_running = False
+            
+        context['metabase_not_running'] = not metabase_running
 
         secret_key = settings.METABASE_EMBEDDING_SECRET_KEY
         if not secret_key:
